@@ -1,0 +1,3 @@
+# مالي
+
+Initial repository setup.
