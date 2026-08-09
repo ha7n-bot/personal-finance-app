@@ -1,0 +1,2 @@
+import Link from "next/link"; import { AuthForm } from "@/components/auth-form";
+export default function Login(){return <main className="min-h-screen grid place-items-center p-6"><section className="card w-full max-w-md p-8"><p className="muted">مرحبًا بعودتك</p><h1 className="text-3xl font-bold mb-8">دخول إلى مالي</h1><AuthForm mode="login"/><p className="mt-6 muted">ليس لديك حساب؟ <Link className="underline" href="/register">أنشئ حسابًا</Link></p></section></main>}
