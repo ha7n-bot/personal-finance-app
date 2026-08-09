@@ -6,6 +6,75 @@ on:
     branches: [main]
     paths:
       - "android-app/**"
+      - "android-app-source-posix.zip"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Extract Android source bundle
+        run: |
+          if [ -f android-app-source-posix.zip ]; then
+            unzip -q -o android-app-source-posix.zip
+          fi
+
+      - name: Build installable APK
+        working-directory: android-app
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Prepare download file
+        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Mali-Android.apk
+
+      - name: Keep workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mali-Android
+          path: Mali-Android.apk
+          if-no-files-found: error
+
+      - name: Publish direct-download release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view android-v1.0.0 >/dev/null 2>&1; then
+            gh release upload android-v1.0.0 Mali-Android.apk --clobber
+          else
+            gh release create android-v1.0.0 Mali-Android.apk \
+              --target "$GITHUB_SHA" \
+              --title "مالي للجوال — Android" \
+              --notes "نسخة Android تجريبية قابلة للتثبيت. تحتاج اتصالًا بالإنترنت وتفتح أحدث نسخة من تطبيق مالي."
+          fi
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "android-app/**"
       - "android-app-source.zip"
       - ".github/workflows/android-apk.yml"
 
