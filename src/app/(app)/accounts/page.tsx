@@ -1,0 +1,10 @@
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { formatSAR } from "@/lib/money";
+import { addAccount } from "./actions";
+
+export default async function Accounts() {
+  const session = await auth();
+  const accounts = await db.account.findMany({ where: { userId: session!.user.id, isArchived: false }, orderBy: { createdAt: "asc" } });
+  return <div><h1 className="text-3xl font-bold mb-8">الحسابات</h1><div className="grid lg:grid-cols-[1fr_360px] gap-5"><section className="grid sm:grid-cols-2 gap-4">{accounts.map((account) => <article className="card p-6" key={account.id}><p className="muted">{account.type}</p><h2 className="font-bold text-xl my-2">{account.name}</h2><strong>{formatSAR(account.openingBalance)}</strong></article>)}</section><form action={addAccount} className="card p-6 space-y-4"><h2 className="font-bold text-xl">حساب جديد</h2><input className="field" name="name" placeholder="اسم الحساب" required/><select className="field" name="type"><option value="BANK">بنك</option><option value="CASH">كاش</option><option value="INVESTMENT">استثمار</option><option value="EMERGENCY">طوارئ</option></select><input className="field" name="balance" type="number" step="0.01" min="0" placeholder="الرصيد الافتتاحي"/><button className="btn w-full">إضافة</button></form></div></div>;
+}
