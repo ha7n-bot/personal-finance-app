@@ -5,9 +5,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const primaryLinks = [
   ["/dashboard", "الرئيسية"], ["/transactions", "العمليات"], ["/accounts", "الحسابات"],
-  ["/budgets", "الميزانية"], ["/recurring", "الالتزامات"], ["/debts", "الديون"],
-  ["/emergency-fund", "صندوق الطوارئ"], ["/goals", "الأهداف"], ["/investments", "الاستثمارات"],
-  ["/reports", "التقارير"], ["/advisor", "المستشار المالي"], ["/notifications", "الإشعارات"], ["/settings", "الإعدادات"],
+  ["/budgets", "الميزانية"], ["/reports", "التقارير"], ["/settings", "الإعدادات"],
 ];
 const mobileLinks = primaryLinks.slice(0, 5);
 
