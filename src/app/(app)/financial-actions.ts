@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { money } from "@/lib/money";
 import { requireUserId } from "@/lib/current-user";
@@ -66,4 +67,46 @@ export async function updateSettings(data: FormData) {
   const userId = await requireUserId();
   await db.settings.upsert({ where: { userId }, update: { theme: text(data, "theme"), budgetAlerts: data.get("budgetAlerts") === "on", dueDateAlerts: data.get("dueDateAlerts") === "on" }, create: { userId, theme: text(data, "theme"), budgetAlerts: data.get("budgetAlerts") === "on", dueDateAlerts: data.get("dueDateAlerts") === "on" } });
   revalidatePath("/settings");
+}
+
+export async function recordDebtPayment(data: FormData) {
+  const userId = await requireUserId();
+  const debtId = text(data, "debtId");
+  const accountId = text(data, "accountId");
+  const paymentAmount = amount(data, "amount");
+  const [debt, account] = await Promise.all([
+    db.debt.findFirst({ where: { id: debtId, userId }, include: { payments: true } }),
+    db.account.findFirst({ where: { id: accountId, userId, isArchived: false } }),
+  ]);
+  if (!debt || !account) throw new Error("بيانات السداد غير صالحة");
+  const paid = debt.payments.reduce((sum, payment) => sum.plus(payment.amount), money(0));
+  const remaining = debt.originalAmount.minus(paid);
+  if (paymentAmount.gt(remaining)) throw new Error("مبلغ السداد أكبر من المتبقي");
+  await db.$transaction(async (tx) => {
+    const transaction = await tx.transaction.create({ data: { userId, type: "DEBT_PAYMENT", amount: paymentAmount, sourceAccountId: account.id, description: `سداد ${debt.name}` } });
+    await tx.debtPayment.create({ data: { debtId: debt.id, transactionId: transaction.id, amount: paymentAmount } });
+    if (paymentAmount.eq(remaining)) await tx.debt.update({ where: { id: debt.id }, data: { status: "PAID", nextPaymentAt: null } });
+    await tx.auditLog.create({ data: { userId, action: "DEBT_PAYMENT_CREATED", entity: "Debt", entityId: debt.id, metadata: { amount: paymentAmount.toString() } } });
+  });
+  revalidatePath("/debts"); revalidatePath("/dashboard"); revalidatePath("/transactions");
+}
+
+export async function contributeToGoal(data: FormData) {
+  const userId = await requireUserId();
+  const goalId = text(data, "goalId");
+  const contribution = amount(data, "amount");
+  const goal = await db.goal.findFirst({ where: { id: goalId, userId, status: "ACTIVE" } });
+  if (!goal) throw new Error("الهدف غير موجود");
+  const next = Prisma.Decimal.min(goal.targetAmount, goal.currentAmount.plus(contribution));
+  await db.goal.update({ where: { id: goal.id }, data: { currentAmount: next, status: next.eq(goal.targetAmount) ? "COMPLETED" : "ACTIVE" } });
+  revalidatePath("/goals"); revalidatePath("/dashboard");
+}
+
+export async function toggleRecurring(data: FormData) {
+  const userId = await requireUserId();
+  const id = text(data, "id");
+  const row = await db.recurringPayment.findFirst({ where: { id, userId } });
+  if (!row) throw new Error("الالتزام غير موجود");
+  await db.recurringPayment.update({ where: { id }, data: { active: !row.active } });
+  revalidatePath("/recurring");
 }
