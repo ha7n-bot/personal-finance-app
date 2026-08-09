@@ -1,3 +1,3 @@
 import type { NextConfig } from "next";
-const nextConfig: NextConfig = { distDir: ".next-cache", experimental: { authInterrupts: true } };
+const nextConfig: NextConfig = { experimental: { authInterrupts: true } };
 export default nextConfig;
