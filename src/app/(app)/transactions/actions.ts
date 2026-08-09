@@ -15,6 +15,12 @@ export async function addTransaction(formData: FormData) {
   if (amount.lte(0)) throw new Error("Invalid amount");
   if (!(await db.account.count({ where: { id: accountId, userId: session.user.id } }))) throw new Error("Forbidden");
   if (categoryId && !(await db.category.count({ where: { id: categoryId, userId: session.user.id } }))) throw new Error("Forbidden");
-  await db.transaction.create({ data: { userId: session.user.id, type, amount, description: String(formData.get("description") || ""), categoryId, sourceAccountId: type === "INCOME" ? null : accountId, destinationAccountId: type === "INCOME" ? accountId : null } });
+  await db.transaction.create({ data: { userId: session.user.id, type, amount, description: String(formData.get("description") || ""), categoryId, occurredAt: formData.get("occurredAt") ? new Date(String(formData.get("occurredAt"))) : new Date(), sourceAccountId: type === "INCOME" ? null : accountId, destinationAccountId: type === "INCOME" ? accountId : null } });
   revalidatePath("/transactions"); revalidatePath("/dashboard");
+}
+
+export async function deleteTransaction(formData: FormData) {
+  const session = await auth(); if (!session) throw new Error("Unauthorized");
+  await db.transaction.deleteMany({ where: { id: String(formData.get("id")), userId: session.user.id } });
+  revalidatePath("/transactions"); revalidatePath("/dashboard"); revalidatePath("/reports");
 }
