@@ -22,6 +22,13 @@ export async function createBudget(data: FormData) {
   revalidatePath("/budgets");
 }
 
+export async function createCategory(data: FormData) {
+  const userId = await requireUserId(); const name = text(data, "name");
+  if (!name) throw new Error("اسم التصنيف مطلوب");
+  await db.category.upsert({ where: { userId_name: { userId, name } }, update: {}, create: { userId, name, color: text(data, "color") || "#0f766e", isEssential: data.get("isEssential") === "on" } });
+  revalidatePath("/budgets"); revalidatePath("/transactions");
+}
+
 export async function createRecurring(data: FormData) {
   const userId = await requireUserId();
   const accountId = text(data, "accountId") || null;
