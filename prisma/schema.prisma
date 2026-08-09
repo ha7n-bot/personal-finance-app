@@ -1,14 +1,67 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
 
-enum UserRole { OWNER MEMBER }
-enum AccountType { BANK CASH INVESTMENT EMERGENCY SAVINGS }
-enum TransactionType { INCOME EXPENSE TRANSFER SAVING INVESTMENT DEBT_PAYMENT }
-enum TransactionStatus { PENDING POSTED VOID }
-enum Frequency { WEEKLY MONTHLY QUARTERLY YEARLY CUSTOM }
-enum DebtStatus { ACTIVE PAID PAUSED }
-enum GoalStatus { ACTIVE COMPLETED PAUSED CANCELLED }
-enum NotificationLevel { INFO SUCCESS WARNING DANGER }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
+enum AccountType {
+  BANK
+  CASH
+  INVESTMENT
+  EMERGENCY
+  SAVINGS
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  SAVING
+  INVESTMENT
+  DEBT_PAYMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  POSTED
+  VOID
+}
+
+enum Frequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum DebtStatus {
+  ACTIVE
+  PAID
+  PAUSED
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+enum NotificationLevel {
+  INFO
+  SUCCESS
+  WARNING
+  DANGER
+}
 
 model User {
   id String @id @default(cuid())
@@ -63,7 +116,13 @@ model Session {
   user User @relation(fields:[userId], references:[id], onDelete:Cascade)
 }
 
-model VerificationToken { identifier String token String @unique expires DateTime @@unique([identifier, token]) }
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
 
 model Account {
   id String @id @default(cuid())
