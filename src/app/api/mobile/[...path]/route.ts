@@ -48,11 +48,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
     }
     const userId = userIdFrom(request); if (!userId) return json({ error: "غير مصرح" }, 401);
     if (path[0] === "accounts") {
-      const input = z.object({ name: z.string().min(1), type: z.enum(["BANK", "CASH", "INVESTMENT", "EMERGENCY", "SAVINGS"]), openingBalance: z.coerce.number().min(0).default(0) }).parse(body);
+      const input = z.object({ name: z.string().min(1), type: z.enum(["BANK", "CASH"]), openingBalance: z.coerce.number().min(0).default(0) }).parse(body);
       const account = await db.account.create({ data: { userId, name: input.name, type: input.type, openingBalance: new Prisma.Decimal(input.openingBalance) } }); return json({ ...account, openingBalance: moneyJson(account.openingBalance) }, 201);
     }
     if (path[0] === "transactions") {
-      const input = z.object({ type: z.nativeEnum(TransactionType), amount: z.coerce.number().positive(), accountId: z.string(), categoryId: z.string().optional(), description: z.string().optional(), occurredAt: z.coerce.date().optional() }).parse(body);
+      const input = z.object({ type: z.enum(["INCOME", "EXPENSE"]), amount: z.coerce.number().positive(), accountId: z.string(), categoryId: z.string().optional(), description: z.string().optional(), occurredAt: z.coerce.date().optional() }).parse(body);
       if (!await db.account.count({ where: { id: input.accountId, userId } })) return json({ error: "الحساب غير صالح" }, 400);
       if (input.categoryId && !await db.category.count({ where: { id: input.categoryId, userId } })) return json({ error: "التصنيف غير صالح" }, 400);
       const transaction = await db.transaction.create({ data: { userId, type: input.type, amount: new Prisma.Decimal(input.amount), sourceAccountId: input.accountId, categoryId: input.categoryId || null, description: input.description, occurredAt: input.occurredAt } }); return json({ ...transaction, amount: moneyJson(transaction.amount) }, 201);
