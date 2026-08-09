@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
-import { accountDelta, spendingTotal } from "@/lib/financial/ledger";
+import { accountDelta, spendingTotal } from "../src/lib/financial/ledger";
 const decimal = (value: number) => new Prisma.Decimal(value);
 describe("financial ledger", () => {
   it("does not count transfers as spending", () => expect(spendingTotal([{ type: "TRANSFER", amount: decimal(2000) }, { type: "EXPENSE", amount: decimal(120) }]).toString()).toBe("120"));
