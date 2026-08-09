@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+:root { color-scheme: light; --bg:#f7f8fa; --card:#fff; --text:#111827; --muted:#6b7280; --line:#e5e7eb; --accent:#0f766e; }
+.dark { color-scheme: dark; --bg:#09090b; --card:#18181b; --text:#fafafa; --muted:#a1a1aa; --line:#27272a; --accent:#2dd4bf; }
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,"Noto Sans Arabic",sans-serif}.card{background:var(--card);border:1px solid var(--line);border-radius:1.25rem}.field{width:100%;border:1px solid var(--line);background:var(--card);border-radius:.8rem;padding:.8rem 1rem;outline:none}.btn{border:0;border-radius:.8rem;padding:.75rem 1.1rem;background:var(--text);color:var(--bg);font-weight:700;cursor:pointer}.muted{color:var(--muted)}
