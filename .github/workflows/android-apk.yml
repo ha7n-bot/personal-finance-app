@@ -6,7 +6,6 @@ on:
     branches: [main]
     paths:
       - "android-app/**"
-      - "android-app-source-v3.zip"
       - ".github/workflows/android-apk.yml"
 
 permissions:
@@ -46,24 +45,24 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Prepare download file
-        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Mali-Android-v3.apk
+        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Mali-Android-v4.apk
 
       - name: Keep workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android-v3
-          path: Mali-Android-v3.apk
+          name: Mali-Android-v4
+          path: Mali-Android-v4.apk
           if-no-files-found: error
 
       - name: Publish direct-download release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v3.0.0 >/dev/null 2>&1; then
-            gh release upload android-v3.0.0 Mali-Android-v3.apk --clobber
+          if gh release view android-v4.0.0 >/dev/null 2>&1; then
+            gh release upload android-v4.0.0 Mali-Android-v4.apk --clobber
           else
-            gh release create android-v3.0.0 Mali-Android-v3.apk \
+            gh release create android-v4.0.0 Mali-Android-v4.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي للجوال — الإصدار 3.0" \
-              --notes "نسخة محسّنة تضيف حسابات اليوم و7 أيام و14 يومًا والشهر والشهرين و3 و6 أشهر والسنة، مع واجهة أوضح وإعدادات إشعار يومية أو أسبوعية أو كل أسبوعين أو شهرية. يعاد تفعيل التذكير بعد إعادة تشغيل الجوال أو تحديث التطبيق، مع زر اختبار وحالة واضحة لصلاحية الإشعارات."
+              --title "مالي للجوال — الإصدار 4.0 التجريبي" \
+              --notes "نسخة اختبارية توحّد تسجيل الدخول بين الجوال والويب، وتدعم Google عبر المتصفح الآمن، وتحسّن العمليات المتكررة ووضوح الواجهة."
           fi

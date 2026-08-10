@@ -1,0 +1,5 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+export function MobileAuthExchange() { const router = useRouter(); const started = useRef(false); const [error, setError] = useState(""); useEffect(() => { if (started.current) return; started.current = true; async function exchange() { const token = new URLSearchParams(location.hash.slice(1)).get("token") || ""; history.replaceState(null, "", "/mobile-auth/exchange"); if (token.length < 32) { setError("رابط الدخول غير صالح؛ حاول مرة أخرى."); return; } const result = await signIn("mobile-token", { token, redirect: false }); if (result?.error) { setError("انتهت صلاحية رابط الدخول؛ حاول مرة أخرى."); return; } router.replace("/import-demo"); router.refresh(); } void exchange(); }, [router]); return <main className="auth-page"><section className="card import-card"><span className={error ? "" : "import-spinner"}/><h1>{error ? "لم يكتمل الدخول" : "ربط حسابك بالتطبيق"}</h1><p>{error || "لحظات ونفتح بياناتك داخل مالي…"}</p></section></main>; }

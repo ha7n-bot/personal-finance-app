@@ -1,2 +1,32 @@
-import { redirect } from "next/navigation";import { auth } from "@/auth";import { db } from "@/lib/db";import { formatSAR } from "@/lib/money";import { accountDelta,spendingTotal } from "@/lib/financial/ledger";import { Prisma } from "@prisma/client";
-export default async function Dashboard(){const session=await auth();if(!session)redirect("/login");const user=await db.user.findUnique({where:{id:session.user.id},include:{accounts:{where:{isArchived:false}}}});if(!user?.onboardingCompleted)redirect("/onboarding");const start=new Date();start.setDate(1);start.setHours(0,0,0,0);const transactions=await db.transaction.findMany({where:{userId:user.id,status:"POSTED"},orderBy:{occurredAt:"desc"}});const month=transactions.filter(t=>t.occurredAt>=start);const income=month.filter(t=>t.type==="INCOME").reduce((s,t)=>s.plus(t.amount),new Prisma.Decimal(0));const expenses=spendingTotal(month);const balance=user.accounts.reduce((sum,a)=>sum.plus(a.openingBalance).plus(accountDelta(a.id,transactions)),new Prisma.Decimal(0));const cards=[["إجمالي الرصيد",balance],["دخل هذا الشهر",income],["مصروف هذا الشهر",expenses],["المتبقي",income.minus(expenses)]] as const;return <div><p className="muted">أهلًا، {user.name}</p><h1 className="text-3xl font-bold mb-8">ملخصك المالي</h1><section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([label,value])=><article className="card p-5" key={label}><p className="muted">{label}</p><strong className="text-2xl block mt-3">{formatSAR(value)}</strong></article>)}</section><section className="grid lg:grid-cols-2 gap-5 mt-6"><article className="card p-6"><h2 className="font-bold text-xl mb-5">الحسابات</h2>{user.accounts.map(a=><div className="flex justify-between py-3 border-b" style={{borderColor:"var(--line)"}} key={a.id}><span>{a.name}</span><strong>{formatSAR(a.openingBalance.plus(accountDelta(a.id,transactions)))}</strong></div>)}</article><article className="card p-6"><h2 className="font-bold text-xl mb-5">أحدث العمليات</h2>{transactions.slice(0,5).map(t=><div className="flex justify-between py-3 border-b" style={{borderColor:"var(--line)"}} key={t.id}><span>{t.description||t.type}</span><strong>{formatSAR(t.amount)}</strong></div>)}{!transactions.length&&<p className="muted">لا توجد عمليات بعد.</p>}</article></section></div>}
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { formatSAR } from "@/lib/money";
+import { accountDelta, spendingTotal } from "@/lib/financial/ledger";
+import { ensureUserWorkspace } from "@/lib/bootstrap-user";
+
+const labels = { BANK: "بنكي", CASH: "نقدي", SAVINGS: "ادخار", INVESTMENT: "استثمار", EMERGENCY: "صندوق طوارئ" } as const;
+export default async function Dashboard() {
+  const session = await auth(); if (!session?.user.id) redirect("/login");
+  await ensureUserWorkspace(session.user.id);
+  const user = await db.user.findUnique({ where: { id: session.user.id }, include: { accounts: { where: { isArchived: false }, orderBy: { createdAt: "asc" } } } });
+  if (!user?.onboardingCompleted) redirect("/onboarding");
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const nextThirtyDays = new Date(); nextThirtyDays.setDate(nextThirtyDays.getDate() + 30);
+  const [transactions, upcoming] = await Promise.all([
+    db.transaction.findMany({ where: { userId: user.id, status: "POSTED" }, include: { category: true }, orderBy: { occurredAt: "desc" } }),
+    db.recurringPayment.findMany({ where: { userId: user.id, active: true, nextDueAt: { lte: nextThirtyDays } }, orderBy: { nextDueAt: "asc" }, take: 5 }),
+  ]);
+  const month = transactions.filter((row) => row.occurredAt >= monthStart);
+  const income = month.filter((row) => row.type === "INCOME").reduce((sum, row) => sum.plus(row.amount), new Prisma.Decimal(0));
+  const expenses = spendingTotal(month); const net = income.minus(expenses);
+  const balance = user.accounts.reduce((sum, account) => sum.plus(account.openingBalance).plus(accountDelta(account.id, transactions)), new Prisma.Decimal(0));
+  const rate = income.gt(0) ? net.div(income).mul(100) : new Prisma.Decimal(0);
+  const cards = [["إجمالي الرصيد", formatSAR(balance), `${user.accounts.length} حساب`], ["دخل هذا الشهر", formatSAR(income), `${month.filter((r) => r.type === "INCOME").length} عملية`], ["مصروف هذا الشهر", formatSAR(expenses), `${month.filter((r) => r.type === "EXPENSE").length} عملية`], ["صافي الشهر", formatSAR(net), `نسبة الفائض ${rate.toDecimalPlaces(0)}٪`]];
+  return <div><div className="page-heading-row"><div><span className="eyebrow">لوحتك المالية</span><h1>أهلًا، {user.name || "بك"}</h1><p className="muted">كل أرقامك الأساسية وآخر ما حدث في مكان واحد.</p></div><Link className="btn" href="/transactions">إضافة عملية</Link></div>
+    <section className="registered-metric-grid">{cards.map(([label, value, hint]) => <article className="card registered-metric" key={label}><span>{label}</span><strong className="number">{value}</strong><small>{hint}</small></article>)}</section>
+    <section className="registered-dashboard-grid"><article className="card dashboard-panel"><h2>الحسابات</h2>{user.accounts.map((account) => <div className="dashboard-line" key={account.id}><span><strong>{account.name}</strong><small>{labels[account.type]}</small></span><strong>{formatSAR(account.openingBalance.plus(accountDelta(account.id, transactions)))}</strong></div>)}</article><article className="card dashboard-panel"><h2>آخر العمليات</h2>{transactions.slice(0, 5).map((row) => <div className="dashboard-line" key={row.id}><span><strong>{row.description || "عملية"}</strong><small>{row.category?.name || "بدون تصنيف"} · {row.occurredAt.toLocaleDateString("ar-SA")}</small></span><strong>{formatSAR(row.amount)}</strong></div>)}{!transactions.length ? <p className="muted">لا توجد عمليات بعد.</p> : null}</article><article className="card dashboard-panel upcoming-panel"><h2>الاستحقاقات القادمة</h2>{upcoming.map((row) => <div className="dashboard-line" key={row.id}><span><strong>{row.name}</strong><small>{row.nextDueAt.toLocaleDateString("ar-SA")}</small></span><strong>{formatSAR(row.amount)}</strong></div>)}{!upcoming.length ? <p className="muted">لا توجد استحقاقات قريبة.</p> : null}</article></section>
+  </div>;
+}

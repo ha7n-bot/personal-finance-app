@@ -175,7 +175,11 @@ export function shiftPeriodAnchor(anchor: string, period: PeriodKey, direction: 
   if (dayOffsets[period]) date.setDate(date.getDate() + dayOffsets[period]! * direction);
   else {
     const monthOffsets: Record<Exclude<PeriodKey, "day" | "week" | "twoWeeks">, number> = { month: 1, twoMonths: 2, quarter: 3, sixMonths: 6, year: 12 };
+    const requestedDay = date.getDate();
+    date.setDate(1);
     date.setMonth(date.getMonth() + monthOffsets[period as keyof typeof monthOffsets] * direction);
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    date.setDate(Math.min(requestedDay, lastDay));
   }
   return dateKey(date);
 }

@@ -35,6 +35,11 @@ enum TransactionStatus {
   VOID
 }
 
+enum CategoryKind {
+  INCOME
+  EXPENSE
+}
+
 enum Frequency {
   WEEKLY
   MONTHLY
@@ -64,56 +69,60 @@ enum NotificationLevel {
 }
 
 model User {
-  id String @id @default(cuid())
-  name String?
-  email String @unique
-  emailVerified DateTime?
-  image String?
-  passwordHash String?
-  role UserRole @default(OWNER)
-  onboardingCompleted Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  accounts Account[]
-  transactions Transaction[]
-  categories Category[]
-  budgets Budget[]
-  recurringPayments RecurringPayment[]
-  debts Debt[]
-  investments Investment[]
-  emergencyFund EmergencyFund?
-  goals Goal[]
-  notifications Notification[]
-  insights FinancialInsight[]
-  settings Settings?
-  auditLogs AuditLog[]
-  authAccounts AuthAccount[]
-  sessions Session[]
+  id                  String             @id @default(cuid())
+  name                String?
+  email               String             @unique
+  emailVerified       DateTime?
+  image               String?
+  passwordHash        String?
+  role                UserRole           @default(OWNER)
+  onboardingCompleted Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  accounts            FinancialAccount[]
+  transactions        Transaction[]
+  categories          Category[]
+  budgets             Budget[]
+  recurringPayments   RecurringPayment[]
+  debts               Debt[]
+  investments         Investment[]
+  emergencyFund       EmergencyFund?
+  goals               Goal[]
+  notifications       Notification[]
+  insights            FinancialInsight[]
+  settings            Settings?
+  auditLogs           AuditLog[]
+  authAccounts        Account[]
+  sessions            Session[]
+  mobileLoginTokens   MobileLoginToken[]
 }
 
-model AuthAccount {
-  id String @id @default(cuid())
-  userId String
-  type String
-  provider String
+// Auth.js requires the Prisma client model name `Account`.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
   providerAccountId String
-  refresh_token String? @db.Text
-  access_token String? @db.Text
-  expires_at Int?
-  token_type String?
-  scope String?
-  id_token String? @db.Text
-  session_state String?
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([provider, providerAccountId])
+  @@map("AuthAccount")
 }
 
 model Session {
-  id String @id @default(cuid())
-  sessionToken String @unique
-  userId String
-  expires DateTime
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -124,201 +133,225 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Account {
-  id String @id @default(cuid())
-  userId String
-  name String
-  type AccountType
-  openingBalance Decimal @default(0) @db.Decimal(18,2)
-  currency String @default("SAR")
-  description String?
-  isArchived Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  sourceTransactions Transaction[] @relation("SourceAccount")
-  destinationTransactions Transaction[] @relation("DestinationAccount")
-  recurringPayments RecurringPayment[]
+model MobileLoginToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+// The table mapping preserves existing financial-account data.
+model FinancialAccount {
+  id                      String             @id @default(cuid())
+  userId                  String
+  name                    String
+  type                    AccountType
+  openingBalance          Decimal            @default(0) @db.Decimal(18, 2)
+  currency                String             @default("SAR")
+  description             String?
+  isArchived              Boolean            @default(false)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceTransactions      Transaction[]      @relation("SourceAccount")
+  destinationTransactions Transaction[]      @relation("DestinationAccount")
+  recurringPayments       RecurringPayment[]
+
   @@index([userId, type])
+  @@map("Account")
 }
 
 model Category {
-  id String @id @default(cuid())
-  userId String
-  name String
-  color String @default("#64748b")
-  icon String @default("circle")
-  isEssential Boolean @default(false)
-  isSystem Boolean @default(false)
-  createdAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  transactions Transaction[]
-  budgets Budget[]
+  id                String             @id @default(cuid())
+  userId            String
+  name              String
+  kind              CategoryKind       @default(EXPENSE)
+  color             String             @default("#64748b")
+  icon              String             @default("circle")
+  isEssential       Boolean            @default(false)
+  isSystem          Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  budgets           Budget[]
   recurringPayments RecurringPayment[]
+
   @@unique([userId, name])
+  @@index([userId, kind])
 }
 
 model Transaction {
-  id String @id @default(cuid())
-  userId String
-  type TransactionType
-  status TransactionStatus @default(POSTED)
-  amount Decimal @db.Decimal(18,2)
-  occurredAt DateTime @default(now())
-  description String?
-  notes String?
-  sourceAccountId String?
+  id                   String            @id @default(cuid())
+  userId               String
+  type                 TransactionType
+  status               TransactionStatus @default(POSTED)
+  amount               Decimal           @db.Decimal(18, 2)
+  occurredAt           DateTime          @default(now())
+  description          String?
+  notes                String?
+  sourceAccountId      String?
   destinationAccountId String?
-  categoryId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  sourceAccount Account? @relation("SourceAccount", fields:[sourceAccountId], references:[id])
-  destinationAccount Account? @relation("DestinationAccount", fields:[destinationAccountId], references:[id])
-  category Category? @relation(fields:[categoryId], references:[id])
-  debtPayment DebtPayment?
+  categoryId           String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceAccount        FinancialAccount? @relation("SourceAccount", fields: [sourceAccountId], references: [id])
+  destinationAccount   FinancialAccount? @relation("DestinationAccount", fields: [destinationAccountId], references: [id])
+  category             Category?         @relation(fields: [categoryId], references: [id])
+  debtPayment          DebtPayment?
+
   @@index([userId, occurredAt])
   @@index([sourceAccountId])
 }
 
 model Budget {
-  id String @id @default(cuid())
-  userId String
+  id         String   @id @default(cuid())
+  userId     String
   categoryId String
-  amount Decimal @db.Decimal(18,2)
-  month DateTime
-  alertAt Int @default(80)
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  category Category @relation(fields:[categoryId], references:[id], onDelete:Cascade)
+  amount     Decimal  @db.Decimal(18, 2)
+  month      DateTime
+  alertAt    Int      @default(80)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@unique([userId, categoryId, month])
 }
 
 model RecurringPayment {
-  id String @id @default(cuid())
-  userId String
-  accountId String?
-  categoryId String?
-  name String
-  amount Decimal @db.Decimal(18,2)
-  frequency Frequency
-  nextDueAt DateTime
-  notes String?
-  active Boolean @default(true)
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  account Account? @relation(fields:[accountId], references:[id])
-  category Category? @relation(fields:[categoryId], references:[id])
+  id              String            @id @default(cuid())
+  userId          String
+  accountId       String?
+  categoryId      String?
+  name            String
+  amount          Decimal           @db.Decimal(18, 2)
+  transactionType TransactionType   @default(EXPENSE)
+  frequency       Frequency
+  nextDueAt       DateTime
+  notes           String?
+  active          Boolean           @default(true)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account         FinancialAccount? @relation(fields: [accountId], references: [id])
+  category        Category?         @relation(fields: [categoryId], references: [id])
+
   @@index([userId, nextDueAt])
 }
 
 model Debt {
-  id String @id @default(cuid())
-  userId String
-  name String
-  originalAmount Decimal @db.Decimal(18,2)
-  installmentAmount Decimal? @db.Decimal(18,2)
-  nextPaymentAt DateTime?
+  id                   String        @id @default(cuid())
+  userId               String
+  name                 String
+  originalAmount       Decimal       @db.Decimal(18, 2)
+  installmentAmount    Decimal?      @db.Decimal(18, 2)
+  nextPaymentAt        DateTime?
   numberOfInstallments Int?
-  endDate DateTime?
-  status DebtStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  payments DebtPayment[]
+  endDate              DateTime?
+  status               DebtStatus    @default(ACTIVE)
+  createdAt            DateTime      @default(now())
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments             DebtPayment[]
 }
 
 model DebtPayment {
-  id String @id @default(cuid())
-  debtId String
-  transactionId String @unique
-  amount Decimal @db.Decimal(18,2)
-  paidAt DateTime @default(now())
-  debt Debt @relation(fields:[debtId], references:[id], onDelete:Cascade)
-  transaction Transaction @relation(fields:[transactionId], references:[id], onDelete:Cascade)
+  id            String      @id @default(cuid())
+  debtId        String
+  transactionId String      @unique
+  amount        Decimal     @db.Decimal(18, 2)
+  paidAt        DateTime    @default(now())
+  debt          Debt        @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
 
 model Investment {
-  id String @id @default(cuid())
-  userId String
-  name String @default("الذهب")
-  createdAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  id         String      @id @default(cuid())
+  userId     String
+  name       String      @default("الذهب")
+  createdAt  DateTime    @default(now())
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   goldAssets GoldAsset[]
 }
 
 model GoldAsset {
-  id String @id @default(cuid())
-  investmentId String
-  quantityGrams Decimal @db.Decimal(18,4)
-  purchasePricePerGram Decimal @db.Decimal(18,2)
-  currentPricePerGram Decimal? @db.Decimal(18,2)
-  purchasedAt DateTime
-  investment Investment @relation(fields:[investmentId], references:[id], onDelete:Cascade)
+  id                   String     @id @default(cuid())
+  investmentId         String
+  quantityGrams        Decimal    @db.Decimal(18, 4)
+  purchasePricePerGram Decimal    @db.Decimal(18, 2)
+  currentPricePerGram  Decimal?   @db.Decimal(18, 2)
+  purchasedAt          DateTime
+  investment           Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
 }
 
 model EmergencyFund {
-  id String @id @default(cuid())
-  userId String @unique
-  targetMonths Int @default(6)
-  currentAmount Decimal @default(0) @db.Decimal(18,2)
-  customTarget Decimal? @db.Decimal(18,2)
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  targetMonths  Int      @default(6)
+  currentAmount Decimal  @default(0) @db.Decimal(18, 2)
+  customTarget  Decimal? @db.Decimal(18, 2)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Goal {
-  id String @id @default(cuid())
-  userId String
-  name String
-  targetAmount Decimal @db.Decimal(18,2)
-  currentAmount Decimal @default(0) @db.Decimal(18,2)
-  targetDate DateTime?
-  status GoalStatus @default(ACTIVE)
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  id            String     @id @default(cuid())
+  userId        String
+  name          String
+  targetAmount  Decimal    @db.Decimal(18, 2)
+  currentAmount Decimal    @default(0) @db.Decimal(18, 2)
+  targetDate    DateTime?
+  status        GoalStatus @default(ACTIVE)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
-  id String @id @default(cuid())
-  userId String
-  title String
-  message String
-  level NotificationLevel @default(INFO)
-  readAt DateTime?
-  createdAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  id        String            @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  level     NotificationLevel @default(INFO)
+  readAt    DateTime?
+  createdAt DateTime          @default(now())
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, readAt])
 }
 
 model FinancialInsight {
-  id String @id @default(cuid())
-  userId String
-  kind String
-  title String
-  body String
-  metrics Json?
+  id          String    @id @default(cuid())
+  userId      String
+  kind        String
+  title       String
+  body        String
+  metrics     Json?
   periodStart DateTime?
-  periodEnd DateTime?
-  createdAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  periodEnd   DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Settings {
-  id String @id @default(cuid())
-  userId String @unique
-  currency String @default("SAR")
-  locale String @default("ar-SA")
-  theme String @default("system")
-  budgetAlerts Boolean @default(true)
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  currency      String  @default("SAR")
+  locale        String  @default("ar-SA")
+  theme         String  @default("system")
+  budgetAlerts  Boolean @default(true)
   dueDateAlerts Boolean @default(true)
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {
-  id String @id @default(cuid())
-  userId String
-  action String
-  entity String
-  entityId String?
-  metadata Json?
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
   ipAddress String?
   createdAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
 }

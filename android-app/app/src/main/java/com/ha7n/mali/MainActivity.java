@@ -27,7 +27,8 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 public final class MainActivity extends Activity {
-    public static final String APP_URL = "https://personal-finance-app-rose-psi.vercel.app/demo";
+    public static final String APP_ORIGIN = "https://personal-finance-app-rose-psi.vercel.app";
+    public static final String APP_URL = APP_ORIGIN + "/";
     public static final String CHANNEL_ID = "mali_financial_reminders";
     private static final int NOTIFICATION_REQUEST = 210;
     private WebView webView;
@@ -62,7 +63,7 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/3.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/4.0");
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
         CookieManager.getInstance().setAcceptCookie(true);
@@ -78,6 +79,10 @@ public final class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                if ("mali".equals(uri.getScheme()) && "auth".equals(uri.getHost())) {
+                    openMobileExchange(uri);
+                    return true;
+                }
                 if ("personal-finance-app-rose-psi.vercel.app".equals(uri.getHost())) return false;
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -99,8 +104,9 @@ public final class MainActivity extends Activity {
             }
         });
 
-        if (savedInstanceState == null) webView.loadUrl(APP_URL);
-        else webView.restoreState(savedInstanceState);
+        if (savedInstanceState == null) {
+            if (!openMobileExchange(getIntent().getData())) webView.loadUrl(APP_URL);
+        } else webView.restoreState(savedInstanceState);
     }
 
     private void createNotificationChannel() {
@@ -189,6 +195,31 @@ public final class MainActivity extends Activity {
         public void openNotificationSettings() {
             runOnUiThread(MainActivity.this::openNotificationSettings);
         }
+
+        @JavascriptInterface
+        public void openExternalAuth(String url) {
+            runOnUiThread(() -> {
+                Uri uri = Uri.parse(url);
+                if (!"https".equals(uri.getScheme()) || !"personal-finance-app-rose-psi.vercel.app".equals(uri.getHost())) return;
+                try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+                catch (Exception ignored) { Toast.makeText(MainActivity.this, "تعذر فتح تسجيل Google", Toast.LENGTH_LONG).show(); }
+            });
+        }
+    }
+
+    private boolean openMobileExchange(Uri uri) {
+        if (uri == null || !"mali".equals(uri.getScheme()) || !"auth".equals(uri.getHost())) return false;
+        String token = uri.getQueryParameter("token");
+        if (token == null || token.length() < 32) return false;
+        webView.loadUrl(APP_ORIGIN + "/mobile-auth/exchange#token=" + Uri.encode(token));
+        return true;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        openMobileExchange(intent.getData());
     }
 
     @Override
