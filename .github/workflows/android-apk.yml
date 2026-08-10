@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - "android-app/**"
-      - "android-app-source-posix.zip"
+      - "android-app-source-v3.zip"
       - ".github/workflows/android-apk.yml"
 
 permissions:
@@ -35,35 +35,38 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Keep a stable signing key for future updates
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: mali-android-signing-v2
+
       - name: Extract Android source bundle
-        run: |
-          if [ -f android-app-source-posix.zip ]; then
-            unzip -q -o android-app-source-posix.zip
-          fi
+        run: unzip -q -o android-app-source-v3.zip
 
       - name: Build installable APK
         working-directory: android-app
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Prepare download file
-        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Mali-Android.apk
+        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Mali-Android-v3.apk
 
       - name: Keep workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android
-          path: Mali-Android.apk
+          name: Mali-Android-v3
+          path: Mali-Android-v3.apk
           if-no-files-found: error
 
       - name: Publish direct-download release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v1.0.0 >/dev/null 2>&1; then
-            gh release upload android-v1.0.0 Mali-Android.apk --clobber
+          if gh release view android-v3.0.0 >/dev/null 2>&1; then
+            gh release upload android-v3.0.0 Mali-Android-v3.apk --clobber
           else
-            gh release create android-v1.0.0 Mali-Android.apk \
+            gh release create android-v3.0.0 Mali-Android-v3.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي للجوال — Android" \
-              --notes "نسخة Android تجريبية قابلة للتثبيت. تحتاج اتصالًا بالإنترنت وتفتح أحدث نسخة من تطبيق مالي."
+              --title "مالي للجوال — الإصدار 3.0" \
+              --notes "نسخة محسّنة تضيف حسابات اليوم و7 أيام و14 يومًا والشهر والشهرين و3 و6 أشهر والسنة، مع واجهة أوضح وإعدادات إشعار يومية أو أسبوعية أو كل أسبوعين أو شهرية. يعاد تفعيل التذكير بعد إعادة تشغيل الجوال أو تحديث التطبيق، مع زر اختبار وحالة واضحة لصلاحية الإشعارات."
           fi
