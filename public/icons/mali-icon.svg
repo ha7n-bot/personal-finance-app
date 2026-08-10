@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="مالي">
+  <defs>
+    <radialGradient id="bg" cx="20%" cy="12%" r="110%">
+      <stop offset="0" stop-color="#0b5b48"/>
+      <stop offset="1" stop-color="#032f27"/>
+    </radialGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9ae4c7"/>
+      <stop offset="1" stop-color="#36b48b"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#d59b35"/>
+      <stop offset="1" stop-color="#ffe19a"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="15" flood-color="#001a14" flood-opacity=".42"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <circle cx="70" cy="62" r="126" fill="#72d9b3" opacity=".055"/>
+  <g filter="url(#shadow)">
+    <path d="M121 335V175c0-42 34-76 76-76h118c42 0 76 34 76 76v162c0 42-34 76-76 76H197c-27 0-51-14-64-35" fill="none" stroke="url(#mint)" stroke-width="38" stroke-linecap="round"/>
+    <path d="M115 365l101-116 62 66 123-150" fill="none" stroke="url(#gold)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M326 259h91c16 0 29 13 29 29v57c0 16-13 29-29 29h-91c-23 0-42-19-42-42v-31c0-23 19-42 42-42z" fill="#58c8a0"/>
+    <circle cx="363" cy="317" r="15" fill="#f4c86f"/>
+    <circle cx="401" cy="165" r="18" fill="#f7d27f"/>
+  </g>
+</svg>
