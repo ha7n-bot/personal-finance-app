@@ -1,0 +1,22 @@
+{
+  "name": "مالي — الإدارة المالية الشخصية",
+  "short_name": "مالي",
+  "description": "ملخص أموالك وميزانيتك وعملياتك في مكان واحد",
+  "lang": "ar",
+  "dir": "rtl",
+  "id": "/demo",
+  "start_url": "/demo?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f3f6f4",
+  "theme_color": "#073e32",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "إضافة عملية", "short_name": "عملية جديدة", "url": "/demo?tab=transactions", "icons": [{ "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "الميزانية", "short_name": "الميزانية", "url": "/demo?tab=budgets", "icons": [{ "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ]
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مالي</string>
+    <string name="notification_channel_name">تذكيرات مالية</string>
+    <string name="notification_channel_description">تذكيرات تختار وقتها لمراجعة المصروف والميزانية</string>
+    <string name="notification_welcome_title">الإشعارات جاهزة</string>
+    <string name="notification_welcome_body">سنذكّرك بلطف لمراجعة أموالك دون إزعاج.</string>
+    <string name="notifications_ready">تم تفعيل الإشعارات</string>
+    <string name="notifications_blocked">الإشعارات محظورة. يمكنك تفعيلها من إعدادات تطبيق مالي.</string>
+    <string name="reminder_saved">تم حفظ الموعد وإرسال إشعار تجريبي</string>
+    <string name="reminder_stopped">تم إيقاف التذكير المالي</string>
+    <string name="daily_reminder_title">حان وقت مراجعة أموالك</string>
+    <string name="daily_reminder_body">سجّل ما فاتك وراجع مصروفاتك والتزاماتك في دقيقة واحدة.</string>
+    <string name="widget_title">ملخص مالي</string>
+    <string name="widget_body">أموالك أوضح عندما تسجّلها أولًا بأول</string>
+    <string name="widget_action">فتح لوحة مالي</string>
+    <string name="widget_description">اختصار سريع لفتح ملخصك المالي</string>
+</resources>
