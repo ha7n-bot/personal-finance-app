@@ -38,7 +38,7 @@
 أضف عناوين العودة التالية في Google Cloud:
 
 - `http://localhost:3000/api/auth/callback/google`
-- `https://personal-finance-app-rose-psi.vercel.app/api/auth/callback/google`
+- `https://mali-finance-app-zord2.vercel.app/api/auth/callback/google`
 
 ثم أضف `AUTH_GOOGLE_ID` و`AUTH_GOOGLE_SECRET` إلى متغيرات بيئة الاستضافة. يقبل التطبيق أيضًا الاسمين `GOOGLE_CLIENT_ID` و`GOOGLE_CLIENT_SECRET` للتوافق مع إعدادات استضافة قديمة. لا تحفظ الأسرار في GitHub.
 
@@ -51,8 +51,8 @@ pnpm test
 pnpm build
 ```
 
-## Android
+## Android 6.1
 
-المصدر داخل `android-app`. تسجيل Google وربط حساب بريد موجود يفتحان في متصفح النظام عبر رموز أحادية الاستخدام صالحة لخمس دقائق، ثم يعودان إلى التطبيق. لا يربط مالي حسابين بالبريد نفسه تلقائيًا دون إثبات جلسة المستخدم الحالية. تنشئ GitHub Actions حزمة الإصدار الفعلي `Mali-Android-v6.apk`.
+المصدر داخل `android-app`. تسجيل Google وربط حساب بريد موجود يفتحان في متصفح النظام عبر رموز أحادية الاستخدام صالحة لخمس دقائق، ثم يعودان إلى التطبيق. لا يربط مالي حسابين بالبريد نفسه تلقائيًا دون إثبات جلسة المستخدم الحالية. يمسح الإصدار 6.1 ذاكرة WebView المؤقتة مرة واحدة بعد الترقية حتى لا تظهر واجهة قديمة، وتنشئ GitHub Actions حزمة الإصدار الفعلي `Mali-Android-v6.1.apk`.
 
 قبل الإطلاق العام النهائي يوصى بإضافة تحديد معدل محاولات الدخول، واستعادة كلمة المرور، ونسخ احتياطية دورية، واختبارات E2E.
