@@ -14,7 +14,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
-import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -26,32 +25,41 @@ import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+
 public final class MainActivity extends Activity {
-    public static final String APP_ORIGIN = "https://mali-finance-app-zord2.vercel.app";
-    public static final String APP_URL = APP_ORIGIN + "/demo";
-    private static final String APP_HOST = "mali-finance-app-zord2.vercel.app";
-    private static final int WEB_CACHE_VERSION = 8;
+    private static final String APP_URL = "file:///android_asset/index.html";
+    private static final int WEB_CACHE_VERSION = 9;
     private static final String FINANCE_PREFS = "mali_finance_local";
     private static final String FINANCE_DATA_KEY = "finance_state_v1";
     private static final int MAX_BACKUP_BYTES = 2_000_000;
     public static final String CHANNEL_ID = "mali_financial_reminders";
     private static final int NOTIFICATION_REQUEST = 210;
+    private static final int EXPORT_REQUEST = 310;
+    private static final int IMPORT_REQUEST = 311;
+
     private WebView webView;
     private ProgressBar progressBar;
+    private String pendingExport;
 
     @Override
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(Color.rgb(6, 43, 35));
-        getWindow().setNavigationBarColor(Color.rgb(9, 18, 15));
+        getWindow().setStatusBarColor(Color.rgb(7, 23, 19));
+        getWindow().setNavigationBarColor(Color.rgb(7, 19, 15));
         createNotificationChannel();
         ReminderScheduler.scheduleNext(this);
 
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.rgb(9, 18, 15));
+        root.setBackgroundColor(Color.rgb(244, 247, 245));
         webView = new WebView(this);
-        webView.setBackgroundColor(Color.rgb(9, 18, 15));
+        webView.setBackgroundColor(Color.rgb(244, 247, 245));
         root.addView(webView, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
         progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -59,21 +67,19 @@ public final class MainActivity extends Activity {
         root.addView(progressBar, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(3)));
         setContentView(root);
 
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
-        settings.setAllowFileAccessFromFileURLs(false);
-        settings.setAllowUniversalAccessFromFileURLs(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/7.0");
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setDatabaseEnabled(true);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(false);
+        webSettings.setAllowFileAccessFromFileURLs(false);
+        webSettings.setAllowUniversalAccessFromFileURLs(false);
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        webSettings.setUserAgentString(webSettings.getUserAgentString() + " MaliAndroid/8.0 Offline");
         clearWebCacheAfterUpgrade();
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
-        CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(WebView view, int progress) {
@@ -81,40 +87,37 @@ public final class MainActivity extends Activity {
                 progressBar.setVisibility(progress >= 100 ? View.GONE : View.VISIBLE);
             }
         });
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if ("mali".equals(uri.getScheme()) && "auth".equals(uri.getHost())) {
-                    openMobileExchange(uri);
-                    return true;
-                }
-                if (APP_HOST.equals(uri.getHost())) return false;
+                if ("file".equals(uri.getScheme())) return false;
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
-                    return true;
                 } catch (Exception ignored) {
-                    return false;
+                    Toast.makeText(MainActivity.this, "تعذر فتح الرابط الخارجي", Toast.LENGTH_SHORT).show();
                 }
+                return true;
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
-                CookieManager.getInstance().flush();
                 sendNotificationStatusToWeb();
-                if (url != null && url.startsWith(APP_ORIGIN + "/demo")) installFinanceBackupBridge();
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) view.loadUrl("file:///android_asset/offline.html");
+                if (request.isForMainFrame()) {
+                    progressBar.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this, "تعذر فتح واجهة مالي المحلية", Toast.LENGTH_LONG).show();
+                }
             }
         });
 
-        if (savedInstanceState == null) {
-            if (!openMobileExchange(getIntent().getData())) webView.loadUrl(APP_URL);
-        } else webView.restoreState(savedInstanceState);
+        if (savedInstanceState == null) webView.loadUrl(APP_URL);
+        else webView.restoreState(savedInstanceState);
     }
 
     private void createNotificationChannel() {
@@ -123,18 +126,6 @@ public final class MainActivity extends Activity {
             channel.setDescription(getString(R.string.notification_channel_description));
             channel.enableVibration(true);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
-        }
-    }
-
-    private void requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
-        } else if (!notificationsEnabled()) {
-            openNotificationSettings();
-        } else {
-            if (!ReminderScheduler.isEnabled(this)) ReminderScheduler.saveAndSchedule(this, "daily", 20, 0);
-            FinancialReminderReceiver.showNotification(this, getString(R.string.notification_welcome_title), getString(R.string.notification_welcome_body));
-            Toast.makeText(this, R.string.notifications_ready, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -156,7 +147,8 @@ public final class MainActivity extends Activity {
 
     private void scheduleReminder(String frequency, int hour, int minute) {
         ReminderScheduler.saveAndSchedule(this, frequency, hour, minute);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
             return;
         }
@@ -172,29 +164,69 @@ public final class MainActivity extends Activity {
     private void sendNotificationStatusToWeb() {
         if (webView == null) return;
         boolean enabled = notificationsEnabled();
-        webView.post(() -> webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('mali-notification-status',{detail:{enabled:" + enabled + "}}));", null));
+        webView.post(() -> webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('mali-notification-status',{detail:{enabled:" + enabled + "}}));",
+                null));
     }
 
-    private void installFinanceBackupBridge() {
-        if (webView == null) return;
-        String script = "(function(){try{" +
-                "const K='mali-finance-v3-clean';" +
-                "const meaningful=(raw)=>{try{const s=JSON.parse(raw||'null');return !!s&&([s.accounts,s.transactions,s.budgets,s.commitments].some(a=>Array.isArray(a)&&a.length>0));}catch(e){return false;}};" +
-                "const nativeRaw=window.MaliAndroid.loadFinanceData();const localRaw=localStorage.getItem(K);" +
-                "if(meaningful(nativeRaw)&&!meaningful(localRaw)){localStorage.setItem(K,nativeRaw);location.reload();return;}" +
-                "if(localRaw&&(!nativeRaw||meaningful(localRaw)))window.MaliAndroid.persistFinanceData(localRaw);" +
-                "if(window.__maliBackupTimer)clearInterval(window.__maliBackupTimer);" +
-                "let last=localStorage.getItem(K)||'';window.__maliBackupTimer=setInterval(()=>{const now=localStorage.getItem(K)||'';if(now!==last){last=now;window.MaliAndroid.persistFinanceData(now);}},1200);" +
-                "}catch(e){}})();";
-        webView.evaluateJavascript(script, null);
+    private void beginExport(String value) {
+        if (value == null || value.isEmpty() || value.getBytes(StandardCharsets.UTF_8).length > MAX_BACKUP_BYTES) {
+            Toast.makeText(this, "تعذر تجهيز النسخة الاحتياطية", Toast.LENGTH_LONG).show();
+            return;
+        }
+        pendingExport = value;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, "mali-backup-" + java.time.LocalDate.now() + ".json");
+        startActivityForResult(intent, EXPORT_REQUEST);
+    }
+
+    private void beginImport() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        startActivityForResult(intent, IMPORT_REQUEST);
+    }
+
+    private void writeExport(Uri uri) {
+        if (uri == null || pendingExport == null) return;
+        try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+            if (output == null) throw new IllegalStateException("No output stream");
+            output.write(pendingExport.getBytes(StandardCharsets.UTF_8));
+            output.flush();
+            Toast.makeText(this, "تم تصدير نسخة مالي بنجاح", Toast.LENGTH_LONG).show();
+        } catch (Exception error) {
+            Toast.makeText(this, "تعذر حفظ ملف النسخة الاحتياطية", Toast.LENGTH_LONG).show();
+        } finally {
+            pendingExport = null;
+        }
+    }
+
+    private void readImport(Uri uri) {
+        if (uri == null) return;
+        try (InputStream input = getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            if (input == null) throw new IllegalStateException("No input stream");
+            byte[] buffer = new byte[8192];
+            int count;
+            int total = 0;
+            while ((count = input.read(buffer)) != -1) {
+                total += count;
+                if (total > MAX_BACKUP_BYTES) throw new IllegalArgumentException("Backup is too large");
+                output.write(buffer, 0, count);
+            }
+            String json = output.toString(StandardCharsets.UTF_8.name());
+            String quoted = JSONObject.quote(json);
+            webView.evaluateJavascript(
+                    "window.MaliApp&&window.MaliApp.receiveImportedData(" + quoted + ");",
+                    null);
+        } catch (Exception error) {
+            Toast.makeText(this, "ملف النسخة الاحتياطية غير صالح أو تعذر قراءته", Toast.LENGTH_LONG).show();
+        }
     }
 
     private final class MaliBridge {
-        @JavascriptInterface
-        public void requestNotifications() {
-            runOnUiThread(MainActivity.this::requestNotificationPermission);
-        }
-
         @JavascriptInterface
         public boolean notificationsEnabled() {
             return MainActivity.this.notificationsEnabled();
@@ -210,6 +242,7 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> {
                 ReminderScheduler.cancel(MainActivity.this);
                 Toast.makeText(MainActivity.this, R.string.reminder_stopped, Toast.LENGTH_SHORT).show();
+                sendNotificationStatusToWeb();
             });
         }
 
@@ -219,18 +252,8 @@ public final class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void openExternalAuth(String url) {
-            runOnUiThread(() -> {
-                Uri uri = Uri.parse(url);
-                if (!"https".equals(uri.getScheme()) || !APP_HOST.equals(uri.getHost())) return;
-                try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
-                catch (Exception ignored) { Toast.makeText(MainActivity.this, "تعذر فتح تسجيل Google", Toast.LENGTH_LONG).show(); }
-            });
-        }
-
-        @JavascriptInterface
         public void persistFinanceData(String value) {
-            if (value == null || value.isEmpty() || value.getBytes().length > MAX_BACKUP_BYTES) return;
+            if (value == null || value.isEmpty() || value.getBytes(StandardCharsets.UTF_8).length > MAX_BACKUP_BYTES) return;
             getSharedPreferences(FINANCE_PREFS, MODE_PRIVATE).edit().putString(FINANCE_DATA_KEY, value).apply();
         }
 
@@ -238,14 +261,16 @@ public final class MainActivity extends Activity {
         public String loadFinanceData() {
             return getSharedPreferences(FINANCE_PREFS, MODE_PRIVATE).getString(FINANCE_DATA_KEY, "");
         }
-    }
 
-    private boolean openMobileExchange(Uri uri) {
-        if (uri == null || !"mali".equals(uri.getScheme()) || !"auth".equals(uri.getHost())) return false;
-        String token = uri.getQueryParameter("token");
-        if (token == null || token.length() < 32) return false;
-        webView.loadUrl(APP_ORIGIN + "/mobile-auth/exchange#token=" + Uri.encode(token));
-        return true;
+        @JavascriptInterface
+        public void requestExport(String value) {
+            runOnUiThread(() -> beginExport(value));
+        }
+
+        @JavascriptInterface
+        public void requestImport() {
+            runOnUiThread(MainActivity.this::beginImport);
+        }
     }
 
     private void clearWebCacheAfterUpgrade() {
@@ -260,10 +285,14 @@ public final class MainActivity extends Activity {
     }
 
     @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        openMobileExchange(intent.getData());
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null) {
+            if (requestCode == EXPORT_REQUEST) pendingExport = null;
+            return;
+        }
+        if (requestCode == EXPORT_REQUEST) writeExport(data.getData());
+        else if (requestCode == IMPORT_REQUEST) readImport(data.getData());
     }
 
     @Override
@@ -271,7 +300,6 @@ public final class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != NOTIFICATION_REQUEST) return;
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            if (!ReminderScheduler.isEnabled(this)) ReminderScheduler.saveAndSchedule(this, "daily", 20, 0);
             FinancialReminderReceiver.showNotification(this, getString(R.string.notification_welcome_title), getString(R.string.notification_welcome_body));
             Toast.makeText(this, R.string.reminder_saved, Toast.LENGTH_SHORT).show();
         } else {

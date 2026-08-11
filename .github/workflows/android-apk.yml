@@ -8,7 +8,7 @@ on:
       - "android-app/**"
       - ".github/workflows/android-apk.yml"
   push:
-    branches: [main, agent/android-local-first-v7]
+    branches: [main, agent/android-offline-v8]
     paths:
       - "android-app/**"
       - ".github/workflows/android-apk.yml"
@@ -28,6 +28,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify fully offline Android shell
+        run: |
+          if grep -R "vercel.app" android-app; then
+            echo "Android must not depend on Vercel"
+            exit 1
+          fi
+          grep -q 'file:///android_asset/index.html' android-app/app/src/main/java/com/ha7n/mali/MainActivity.java
+          grep -q 'mali-offline-v8' android-app/app/src/main/assets/index.html
+          python3 - <<'PY'
+          import re, pathlib
+          text = pathlib.Path('android-app/app/src/main/assets/index.html').read_text()
+          match = re.search(r'<script>([\s\S]*?)</script>', text)
+          if not match:
+              raise SystemExit('Missing local app script')
+          pathlib.Path('/tmp/mali-offline.js').write_text(match.group(1))
+          PY
+          node --check /tmp/mali-offline.js
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -54,13 +72,13 @@ jobs:
         run: gradle --no-daemon :app:assembleRelease
 
       - name: Prepare download file
-        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v7.apk
+        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v8.apk
 
       - name: Keep workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android-v7
-          path: Mali-Android-v7.apk
+          name: Mali-Android-v8
+          path: Mali-Android-v8.apk
           if-no-files-found: error
 
       - name: Publish direct-download release from main
@@ -68,11 +86,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v7.0.0 >/dev/null 2>&1; then
-            gh release upload android-v7.0.0 Mali-Android-v7.apk --clobber
+          if gh release view android-v8.0.0 >/dev/null 2>&1; then
+            gh release upload android-v8.0.0 Mali-Android-v8.apk --clobber
           else
-            gh release create android-v7.0.0 Mali-Android-v7.apk \
+            gh release create android-v8.0.0 Mali-Android-v8.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي لأندرويد — الإصدار 7.0" \
-              --notes "إصدار محلي أولًا بدون تسجيل دخول إجباري. يحفظ بيانات مالي على الجهاز، ينسخ الحالة المالية إلى تخزين Android الخاص بالتطبيق، يدعم النسخ الاحتياطي والاستعادة عبر نظام Android عند تفعيله، ويحافظ على التذكيرات والوضع دون اتصال."
+              --title "مالي لأندرويد — الإصدار 8.0 Offline" \
+              --notes "نسخة أندرويد مستقلة تعمل بالكامل من داخل APK بدون Vercel أو تسجيل دخول أو اتصال إنترنت لفتح التطبيق. تشمل حفظ Native وAndroid Backup وتصدير واستيراد JSON وإعدادات الخط والتباين والتنبيهات والفواتير الشهرية والأقساط."
           fi
