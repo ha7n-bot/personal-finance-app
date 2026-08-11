@@ -12,7 +12,7 @@ const primary: ReadonlyArray<readonly [string, string, AppIconName]> = [
   ["/transactions", "العمليات", "transactions"],
   ["/accounts", "الحسابات", "accounts"],
   ["/budgets", "الميزانية", "budget"],
-  ["/recurring", "الدفعات المتكررة", "repeat"],
+  ["/recurring", "الفواتير والأقساط", "repeat"],
   ["/reports", "التقارير", "reports"],
 ];
 
@@ -24,7 +24,13 @@ const planning: ReadonlyArray<readonly [string, string, AppIconName]> = [
   ["/advisor", "المستشار المالي", "advisor"],
 ];
 
-const mobile = primary.filter(([href]) => ["/dashboard", "/transactions", "/accounts", "/recurring", "/reports"].includes(href));
+const mobile: ReadonlyArray<readonly [string, string, AppIconName]> = [
+  ["/dashboard", "الرئيسية", "home"],
+  ["/transactions", "العمليات", "transactions"],
+  ["/accounts", "الحسابات", "accounts"],
+  ["/recurring", "الفواتير", "repeat"],
+  ["/reports", "التقارير", "reports"],
+];
 const active = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 export function AppNavigation({ userName, userEmail }: { userName?: string | null; userEmail?: string | null }) {

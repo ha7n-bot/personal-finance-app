@@ -10,18 +10,16 @@ android {
         applicationId = "com.ha7n.mali"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "5.0.0"
+        versionCode = 6
+        versionName = "6.0.0"
     }
 
     buildTypes {
-        debug {
-            applicationIdSuffix = ".preview"
-            versionNameSuffix = "-preview"
-            resValue("string", "app_name", "مالي التجريبي")
-        }
         release {
             isMinifyEnabled = false
+            // Stable GitHub Actions key: installable now and updatable by later releases.
+            // Replace with a protected Play signing key before publishing to the store.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
