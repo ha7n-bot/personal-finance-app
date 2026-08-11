@@ -63,7 +63,7 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/5.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/6.0");
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
         CookieManager.getInstance().setAcceptCookie(true);

@@ -40,6 +40,11 @@ enum CategoryKind {
   EXPENSE
 }
 
+enum RecurringPlanType {
+  ONGOING
+  INSTALLMENTS
+}
+
 enum Frequency {
   WEEKLY
   MONTHLY
@@ -223,20 +228,24 @@ model Budget {
 }
 
 model RecurringPayment {
-  id              String            @id @default(cuid())
-  userId          String
-  accountId       String?
-  categoryId      String?
-  name            String
-  amount          Decimal           @db.Decimal(18, 2)
-  transactionType TransactionType   @default(EXPENSE)
-  frequency       Frequency
-  nextDueAt       DateTime
-  notes           String?
-  active          Boolean           @default(true)
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account         FinancialAccount? @relation(fields: [accountId], references: [id])
-  category        Category?         @relation(fields: [categoryId], references: [id])
+  id                    String            @id @default(cuid())
+  userId                String
+  accountId             String?
+  categoryId            String?
+  name                  String
+  amount                Decimal           @db.Decimal(18, 2)
+  transactionType       TransactionType   @default(EXPENSE)
+  frequency             Frequency
+  planType              RecurringPlanType @default(ONGOING)
+  totalAmount           Decimal?          @db.Decimal(18, 2)
+  installmentCount      Int?
+  completedInstallments Int               @default(0)
+  nextDueAt             DateTime
+  notes                 String?
+  active                Boolean           @default(true)
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account               FinancialAccount? @relation(fields: [accountId], references: [id])
+  category              Category?         @relation(fields: [categoryId], references: [id])
 
   @@index([userId, nextDueAt])
 }

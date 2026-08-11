@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { db } from "@/lib/db";
+import { nextInstallmentAmount } from "@/lib/installments";
 import { formatSAR } from "@/lib/money";
 import { accountDelta, spendingTotal } from "@/lib/financial/ledger";
 import { ensureUserWorkspace } from "@/lib/bootstrap-user";
@@ -93,8 +94,8 @@ export default async function Dashboard() {
         <Link href="/transactions?type=INCOME"><b><AppIcon name="income"/></b><span><strong>٢. أضف دخلك</strong><small>مثلاً الراتب الشهري</small></span><AppIcon name="arrow" size={17}/></Link>
         <Link href="/transactions?type=EXPENSE"><b><AppIcon name="expense"/></b><span><strong>٣. أضف أول مصروف</strong><small>مثلاً فاتورة الكهرباء</small></span><AppIcon name="arrow" size={17}/></Link>
       </div>
-      <p className="first-run-tip"><AppIcon name="repeat" size={18}/>عند إضافة فاتورة اختر «متكررة كل شهر» وسيضعها مالي ضمن الاستحقاقات القادمة تلقائيًا.</p>
-    </section> : <nav className="quick-actions" aria-label="إجراءات سريعة"><Link href="/transactions?type=EXPENSE"><span className="rose"><AppIcon name="expense"/></span><b>إضافة مصروف</b></Link><Link href="/transactions?type=INCOME"><span className="emerald"><AppIcon name="income"/></span><b>إضافة دخل</b></Link><Link href="/recurring"><span className="gold"><AppIcon name="repeat"/></span><b>فاتورة شهرية</b></Link><Link href="/reports"><span className="blue"><AppIcon name="reports"/></span><b>فتح التقارير</b></Link></nav>}
+      <p className="first-run-tip"><AppIcon name="repeat" size={18}/><span>عند إضافة مصروف اختر: مرة واحدة، شهري مستمر، أو أقساط محددة. <Link href="/settings">الخط غير مناسب؟ اضبطه من الإعدادات.</Link></span></p>
+    </section> : <nav className="quick-actions" aria-label="إجراءات سريعة"><Link href="/transactions?type=EXPENSE"><span className="rose"><AppIcon name="expense"/></span><b>إضافة مصروف</b></Link><Link href="/transactions?type=INCOME"><span className="emerald"><AppIcon name="income"/></span><b>إضافة دخل</b></Link><Link href="/transactions?type=EXPENSE&plan=MONTHLY"><span className="gold"><AppIcon name="repeat"/></span><b>فاتورة أو قسط</b></Link><Link href="/reports"><span className="blue"><AppIcon name="reports"/></span><b>فتح التقارير</b></Link></nav>}
 
     <section className="registered-metric-grid">{cards.map(([label, value, hint], index) => <article className={`card registered-metric metric-${metricTones[index]}`} key={label}><div><span>{label}</span><i><AppIcon name={metricIcons[index]}/></i></div><strong className="number">{value}</strong><small>{hint}</small></article>)}</section>
 
@@ -110,7 +111,7 @@ export default async function Dashboard() {
 
       <article className="card dashboard-panel recent-panel"><div className="panel-heading"><h2>آخر العمليات</h2><Link href="/transactions">عرض الكل</Link></div>{transactions.slice(0, 5).map((row) => { const isIncome = row.type === "INCOME"; const account = isIncome ? row.destinationAccount : row.sourceAccount; return <div className="dashboard-line" key={row.id}><span className={`dashboard-line-icon ${isIncome ? "income" : "expense"}`}><AppIcon name={isIncome ? "income" : "expense"} size={18}/></span><span><strong>{row.description || "عملية"}</strong><small>{row.category?.name || "بدون تصنيف"} · {account?.name || "الحساب الرئيسي"} · {row.occurredAt.toLocaleDateString("ar-SA")}</small></span><strong className={isIncome ? "positive" : "negative"}>{isIncome ? "+" : "−"}{formatSAR(row.amount)}</strong></div>})}{!hasTransactions ? <div className="panel-empty-state compact"><strong>سجلك ما زال فارغًا</strong><p>ابدأ من خطوات الإعداد الموجودة أعلى الصفحة.</p></div> : null}</article>
 
-      <article className="card dashboard-panel upcoming-panel"><div className="panel-heading"><h2>الاستحقاقات القادمة</h2><Link href="/recurring">إدارة</Link></div>{upcoming.map((row) => <div className="dashboard-line" key={row.id}><span className="dashboard-line-icon due"><AppIcon name="calendar" size={18}/></span><span><strong>{row.name}</strong><small>{row.nextDueAt.toLocaleDateString("ar-SA")} · {row.frequency === "MONTHLY" ? "شهري" : "متكرر"}</small></span><strong>{formatSAR(row.amount)}</strong></div>)}{!upcoming.length ? <div className="panel-empty-state compact"><strong>لا توجد فواتير قريبة</strong><p>اختر «متكررة كل شهر» عند إضافة فاتورة.</p></div> : null}</article>
+      <article className="card dashboard-panel upcoming-panel"><div className="panel-heading"><h2>الاستحقاقات القادمة</h2><Link href="/recurring">إدارة</Link></div>{upcoming.map((row) => { const fixed = row.planType === "INSTALLMENTS" && row.totalAmount !== null && row.installmentCount !== null; const nextAmount = fixed ? nextInstallmentAmount(row.totalAmount!, row.installmentCount!, row.completedInstallments) : row.amount; return <div className="dashboard-line" key={row.id}><span className="dashboard-line-icon due"><AppIcon name={fixed ? "debt" : "calendar"} size={18}/></span><span><strong>{row.name}</strong><small>{row.nextDueAt.toLocaleDateString("ar-SA")} · {fixed ? `قسط ${row.completedInstallments + 1} من ${row.installmentCount}` : "شهري مستمر"}</small></span><strong>{formatSAR(nextAmount)}</strong></div>; })}{!upcoming.length ? <div className="panel-empty-state compact"><strong>لا توجد فواتير قريبة</strong><p>أضف فاتورة شهرية أو خطة أقساط وستظهر هنا تلقائيًا.</p></div> : null}</article>
     </section>
   </div>;
 }

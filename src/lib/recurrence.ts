@@ -9,6 +9,17 @@ export function nextMonthlyDate(value: Date) {
   return occurrenceInMonth(value, value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
 }
 
+export function nextRecurringDate(value: Date, frequency: "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY" | "CUSTOM") {
+  if (frequency === "WEEKLY") {
+    const next = new Date(value);
+    next.setUTCDate(next.getUTCDate() + 7);
+    return next;
+  }
+  if (frequency === "QUARTERLY") return occurrenceInMonth(value, value.getUTCFullYear(), value.getUTCMonth() + 3, value.getUTCDate());
+  if (frequency === "YEARLY") return occurrenceInMonth(value, value.getUTCFullYear() + 1, value.getUTCMonth(), value.getUTCDate());
+  return nextMonthlyDate(value);
+}
+
 export function nextMonthlyOccurrence(value: Date, after = new Date()) {
   const requestedDay = value.getUTCDate();
   let offset = 1;

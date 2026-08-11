@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { nextInstallmentAmount } from "@/lib/installments";
 import { money } from "@/lib/money";
 import { requireUserId } from "@/lib/current-user";
+import { nextMonthlyOccurrence, nextRecurringDate } from "@/lib/recurrence";
 
 const text = (data: FormData, key: string) => String(data.get(key) || "").trim();
 const amount = (data: FormData, key: string) => {
@@ -17,7 +19,7 @@ const amount = (data: FormData, key: string) => {
 const recurringSchema = z.object({
   name: z.string().trim().min(2).max(120), amount: z.coerce.number().positive().max(999_999_999_999),
   transactionType: z.enum(["INCOME", "EXPENSE"]), frequency: z.enum(["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]),
-  nextDueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), accountId: z.string().min(1), categoryId: z.string().optional(),
+  nextDueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), accountId: z.string().min(1), categoryId: z.string().optional(),
 });
 
 export async function createBudget(data: FormData) {
@@ -39,7 +41,7 @@ export async function createCategory(data: FormData) {
 
 export async function createRecurring(data: FormData) {
   const userId = await requireUserId();
-  const parsed = recurringSchema.safeParse({ name: data.get("name"), amount: data.get("amount"), transactionType: data.get("transactionType") || "EXPENSE", frequency: data.get("frequency"), nextDueAt: data.get("nextDueAt"), accountId: data.get("accountId"), categoryId: String(data.get("categoryId") || "") || undefined });
+  const parsed = recurringSchema.safeParse({ name: data.get("name"), amount: data.get("amount"), transactionType: data.get("transactionType") || "EXPENSE", frequency: data.get("frequency"), nextDueAt: String(data.get("nextDueAt") || "") || undefined, accountId: data.get("accountId"), categoryId: String(data.get("categoryId") || "") || undefined });
   if (!parsed.success) throw new Error("تحقق من بيانات الالتزام");
   const [account, category] = await Promise.all([
     db.financialAccount.findFirst({ where: { id: parsed.data.accountId, userId, isArchived: false } }),
@@ -47,7 +49,8 @@ export async function createRecurring(data: FormData) {
   ]);
   if (!account) throw new Error("أضف حسابًا صالحًا أولًا");
   if (category && category.kind !== parsed.data.transactionType) throw new Error("التصنيف لا يطابق نوع الالتزام");
-  await db.recurringPayment.create({ data: { userId, name: parsed.data.name, amount: money(parsed.data.amount), transactionType: parsed.data.transactionType, frequency: parsed.data.frequency, nextDueAt: new Date(`${parsed.data.nextDueAt}T12:00:00.000Z`), accountId: account.id, categoryId: category?.id ?? null } });
+  const nextDueAt = parsed.data.nextDueAt ? new Date(`${parsed.data.nextDueAt}T12:00:00.000Z`) : nextMonthlyOccurrence(new Date());
+  await db.recurringPayment.create({ data: { userId, name: parsed.data.name, amount: money(parsed.data.amount), transactionType: parsed.data.transactionType, frequency: parsed.data.frequency, nextDueAt, accountId: account.id, categoryId: category?.id ?? null } });
   revalidatePath("/recurring");
   revalidatePath("/dashboard");
 }
@@ -131,7 +134,57 @@ export async function toggleRecurring(data: FormData) {
   const id = text(data, "id");
   const row = await db.recurringPayment.findFirst({ where: { id, userId } });
   if (!row) throw new Error("الالتزام غير موجود");
+  if (!row.active && row.planType === "INSTALLMENTS" && row.installmentCount && row.completedInstallments >= row.installmentCount) throw new Error("خطة الأقساط مكتملة بالفعل");
   await db.recurringPayment.update({ where: { id }, data: { active: !row.active } });
   revalidatePath("/recurring");
   revalidatePath("/dashboard");
+}
+
+export async function recordRecurringPayment(data: FormData) {
+  const userId = await requireUserId();
+  const id = text(data, "id");
+  const row = await db.recurringPayment.findFirst({ where: { id, userId } });
+  if (!row || !row.active) throw new Error("هذه الدفعة غير متاحة الآن");
+  if (!row.accountId) throw new Error("اختر حسابًا صالحًا لهذه الدفعة");
+  if (row.transactionType !== "EXPENSE" && row.transactionType !== "INCOME") throw new Error("نوع الدفعة غير مدعوم");
+  const account = await db.financialAccount.findFirst({ where: { id: row.accountId, userId, isArchived: false } });
+  if (!account) throw new Error("الحساب المرتبط غير متاح");
+
+  const fixed = row.planType === "INSTALLMENTS";
+  if (fixed && (!row.totalAmount || !row.installmentCount)) throw new Error("بيانات خطة الأقساط غير مكتملة");
+  if (fixed && row.completedInstallments >= row.installmentCount!) throw new Error("تم سداد جميع الأقساط");
+  const paymentAmount = fixed
+    ? nextInstallmentAmount(row.totalAmount!, row.installmentCount!, row.completedInstallments)
+    : row.amount;
+  const completedInstallments = fixed ? row.completedInstallments + 1 : row.completedInstallments;
+  const completed = fixed && completedInstallments >= row.installmentCount!;
+  const nextDueAt = nextRecurringDate(row.nextDueAt, row.frequency);
+
+  await db.$transaction(async (tx) => {
+    const claimed = await tx.recurringPayment.updateMany({
+      where: { id: row.id, userId, active: true, nextDueAt: row.nextDueAt, completedInstallments: row.completedInstallments },
+      data: fixed
+        ? { completedInstallments, active: !completed, ...(completed ? {} : { nextDueAt }) }
+        : { nextDueAt },
+    });
+    if (!claimed.count) throw new Error("تم تسجيل هذه الدفعة بالفعل");
+    const transaction = await tx.transaction.create({ data: {
+      userId,
+      type: row.transactionType,
+      amount: paymentAmount,
+      description: fixed ? `قسط ${row.name}` : row.name,
+      notes: row.notes,
+      categoryId: row.categoryId,
+      sourceAccountId: row.transactionType === "EXPENSE" ? account.id : null,
+      destinationAccountId: row.transactionType === "INCOME" ? account.id : null,
+    } });
+    await tx.auditLog.create({ data: {
+      userId,
+      action: fixed ? "INSTALLMENT_RECORDED" : "RECURRING_PAYMENT_RECORDED",
+      entity: "RecurringPayment",
+      entityId: row.id,
+      metadata: { transactionId: transaction.id, amount: paymentAmount.toString(), completedInstallments, completed },
+    } });
+  });
+  for (const path of ["/recurring", "/dashboard", "/transactions", "/reports"]) revalidatePath(path);
 }

@@ -1,19 +1,60 @@
 import Link from "next/link";
+import { AppIcon } from "@/components/app-icon";
 import { db } from "@/lib/db";
+import { installmentRemaining, nextInstallmentAmount } from "@/lib/installments";
 import { formatSAR } from "@/lib/money";
 import { requireUserId } from "@/lib/current-user";
-import { createRecurring, toggleRecurring } from "../financial-actions";
+import { recordRecurringPayment, toggleRecurring } from "../financial-actions";
 
-const frequencyLabel = { WEEKLY: "أسبوعي", MONTHLY: "شهري", QUARTERLY: "كل ثلاثة أشهر", YEARLY: "سنوي", CUSTOM: "مخصص" } as const;
 export default async function RecurringPage() {
   const userId = await requireUserId();
-  const [rows, accounts, categories] = await Promise.all([
-    db.recurringPayment.findMany({ where: { userId }, include: { account: true, category: true }, orderBy: [{ active: "desc" }, { nextDueAt: "asc" }] }),
-    db.financialAccount.findMany({ where: { userId, isArchived: false }, orderBy: { createdAt: "asc" } }),
-    db.category.findMany({ where: { userId, kind: "EXPENSE" }, orderBy: { name: "asc" } }),
-  ]);
-  return <div><div className="page-heading-row"><div><span className="eyebrow">فواتير وأقساط</span><h1>الدفعات المتكررة</h1><p className="muted">تابع ما يتكرر عليك وموعد الدفعة القادمة.</p></div><Link className="secondary-button" href="/transactions">تسجيل عملية عادية</Link></div>
-    <div className="page-grid recurring-layout"><section className="recurring-list">{rows.map((row) => <article className={`card recurring-card ${row.active ? "" : "paused"}`} key={row.id}><div className="recurring-main"><span className="recurring-type expense">مصروف</span><div><h2>{row.name}</h2><p>{frequencyLabel[row.frequency]} · الاستحقاق القادم {row.nextDueAt.toLocaleDateString("ar-SA")}</p><small>{row.account?.name || "بدون حساب"}{row.category ? ` · ${row.category.name}` : ""}</small></div></div><div className="recurring-actions"><strong>{formatSAR(row.amount)}</strong><form action={toggleRecurring}><input type="hidden" name="id" value={row.id}/><button className="text-button">{row.active ? "إيقاف مؤقت" : "إعادة التفعيل"}</button></form></div></article>)}{!rows.length ? <div className="card empty"><strong>لا توجد دفعات متكررة</strong><p>اختر «متكررة كل شهر» عند تسجيل فاتورة لتظهر هنا.</p></div> : null}</section>
-      {accounts.length ? <form action={createRecurring} className="card transaction-form-card"><h2>إضافة التزام متكرر</h2><input type="hidden" name="transactionType" value="EXPENSE"/><label className="field-label"><span>اسم الالتزام</span><input className="field" name="name" placeholder="مثال: فاتورة الكهرباء" required minLength={2}/></label><label className="field-label"><span>المبلغ المتوقع</span><input className="field" name="amount" type="number" min="0.01" step="0.01" required/></label><label className="field-label"><span>طريقة التكرار</span><select className="field" name="frequency" defaultValue="MONTHLY"><option value="MONTHLY">كل شهر</option><option value="WEEKLY">كل أسبوع</option><option value="QUARTERLY">كل ثلاثة أشهر</option><option value="YEARLY">كل سنة</option></select></label><label className="field-label"><span>موعد الاستحقاق القادم</span><input className="field" name="nextDueAt" type="date" required/></label><label className="field-label"><span>الحساب</span><select className="field" name="accountId" defaultValue={accounts[0].id}>{accounts.map((a) => <option value={a.id} key={a.id}>{a.name}</option>)}</select></label><label className="field-label"><span>التصنيف</span><select className="field" name="categoryId" defaultValue={categories[0]?.id ?? ""}><option value="">بدون تصنيف</option>{categories.map((c) => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label><button className="btn w-full">إضافة الالتزام</button></form> : <aside className="card empty-account-card"><h2>أضف حسابًا أولًا</h2><Link className="btn" href="/accounts">إضافة حساب</Link></aside>}
-    </div></div>;
+  const rows = await db.recurringPayment.findMany({
+    where: { userId },
+    include: { account: true, category: true },
+    orderBy: [{ active: "desc" }, { nextDueAt: "asc" }],
+  });
+
+  return <div>
+    <div className="page-heading-row">
+      <div><span className="eyebrow">واضحة حتى آخر دفعة</span><h1>الفواتير والأقساط</h1><p className="muted">سجّل دفعة الشهر بضغطة واحدة، وسيحسب مالي المتبقي والموعد التالي.</p></div>
+      <Link className="btn" href="/transactions?type=EXPENSE&plan=MONTHLY"><AppIcon name="plus" size={18}/>إضافة فاتورة أو قسط</Link>
+    </div>
+
+    <section className="recurring-manage-list">
+      {rows.map((row) => {
+        const fixed = row.planType === "INSTALLMENTS" && row.totalAmount !== null && row.installmentCount !== null;
+        const count = fixed ? row.installmentCount! : 0;
+        const paid = fixed ? Math.min(row.completedInstallments, count) : 0;
+        const completed = fixed && paid >= count;
+        const remaining = fixed ? installmentRemaining(row.totalAmount!, count, paid) : null;
+        const payment = fixed && !completed ? nextInstallmentAmount(row.totalAmount!, count, paid) : row.amount;
+        const progress = fixed ? Math.round(paid / count * 100) : 0;
+        const paused = !row.active && !completed;
+
+        return <article className={`card recurring-plan-card ${paused ? "paused" : ""} ${completed ? "completed" : ""}`} key={row.id}>
+          <div className="recurring-plan-heading">
+            <span className={`recurring-plan-icon ${fixed ? "installments" : "monthly"}`}><AppIcon name={fixed ? "debt" : "repeat"}/></span>
+            <div><div className="recurring-plan-labels"><span>{fixed ? "أقساط محددة" : "شهري مستمر"}</span>{completed ? <b className="status-complete">مكتمل</b> : paused ? <b className="status-paused">متوقف مؤقتًا</b> : <b className="status-active">فعّال</b>}</div><h2>{row.name}</h2><p>{row.account?.name || "الحساب غير متاح"}{row.category ? ` · ${row.category.name}` : ""}</p></div>
+          </div>
+
+          {fixed ? <div className="installment-progress-block">
+            <div><strong>تم دفع {paid} من {count}</strong><span>{progress}٪</span></div>
+            <div className="installment-progress" role="progressbar" aria-label={`تقدم أقساط ${row.name}`} aria-valuemin={0} aria-valuemax={count} aria-valuenow={paid}><i style={{ width: `${progress}%` }}/></div>
+            <p><span>المتبقي</span><strong>{formatSAR(remaining!)}</strong></p>
+          </div> : <p className="ongoing-explanation"><AppIcon name="info" size={17}/>يستمر كل شهر حتى توقفه بنفسك.</p>}
+
+          <div className="recurring-plan-footer">
+            <div><span>{completed ? "اكتمل السداد" : fixed ? `القسط القادم ${paid + 1} من ${count}` : "الدفعة القادمة"}</span><strong>{completed ? formatSAR(row.totalAmount!) : formatSAR(payment)}</strong>{!completed ? <small>الموعد تلقائيًا: {row.nextDueAt.toLocaleDateString("ar-SA")}</small> : null}</div>
+            <div className="recurring-plan-actions">
+              {!completed && row.active ? <form action={recordRecurringPayment}><input type="hidden" name="id" value={row.id}/><button className="btn" disabled={!row.accountId}><AppIcon name="check" size={18}/>تسجيل الدفعة</button></form> : null}
+              {!completed ? <form action={toggleRecurring}><input type="hidden" name="id" value={row.id}/><button className="text-button">{row.active ? "إيقاف مؤقت" : "إعادة التفعيل"}</button></form> : null}
+            </div>
+          </div>
+          {!row.accountId ? <p className="recurring-account-warning"><AppIcon name="info" size={17}/>لا يمكن تسجيل الدفعة لأن حسابها غير متاح. <Link href="/accounts">افتح الحسابات</Link></p> : null}
+        </article>;
+      })}
+
+      {!rows.length ? <div className="card recurring-empty-state"><span><AppIcon name="repeat"/></span><h2>لا توجد فواتير أو أقساط بعد</h2><p>عند إضافة مصروف اختر «شهري مستمر» للكهرباء والاشتراكات، أو «أقساط محددة» لمبلغ ينتهي بعد عدد أشهر.</p><Link className="btn" href="/transactions?type=EXPENSE&plan=MONTHLY">إضافة أول فاتورة أو قسط</Link></div> : null}
+    </section>
+  </div>;
 }

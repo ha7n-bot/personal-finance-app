@@ -28,7 +28,7 @@ export default async function Onboarding() {
           <label><input type="radio" name="type" value="INVESTMENT"/><span><AppIcon name="investment"/><strong>استثمار</strong><small>محفظة استثمارية</small></span></label>
         </fieldset>
         <label className="field-label"><span>الرصيد الحالي <small>اكتب صفرًا إذا أردت البدء من اليوم</small></span><div className="amount-field"><input className="field number-input" name="balance" type="number" min="0" step="0.01" defaultValue="0" inputMode="decimal"/><b>ر.س</b></div></label>
-        <p className="onboarding-help"><AppIcon name="info" size={17}/>يمكنك تغيير الاسم أو إضافة حسابات أخرى لاحقًا من صفحة الحسابات.</p>
+        <p className="onboarding-help"><AppIcon name="info" size={17}/>يمكنك إضافة حسابات أخرى لاحقًا، وتكبير الخط أو تغيير سماكته من الإعدادات.</p>
         <button className="btn w-full">حفظ الحساب والانتقال للخطوة التالية <AppIcon name="arrow" size={18}/></button>
       </form>
     </section>
