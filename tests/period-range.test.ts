@@ -18,4 +18,9 @@ describe("financial period ranges", () => {
     expect(shiftPeriodAnchor("2026-08-10", "twoWeeks", -1)).toBe("2026-07-27");
     expect(shiftPeriodAnchor("2026-08-10", "twoMonths", 1)).toBe("2026-10-10");
   });
+
+  it("keeps month-end navigation inside the intended month", () => {
+    expect(shiftPeriodAnchor("2026-01-31", "month", 1)).toBe("2026-02-28");
+    expect(shiftPeriodAnchor("2024-01-31", "month", 1)).toBe("2024-02-29");
+  });
 });

@@ -2,6 +2,7 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Account,
   Budget,
@@ -248,6 +249,7 @@ export default function DemoPage() {
   const savingsRate = income > 0 ? Math.max(0, net / income) : 0;
   const totalBalance = state.accounts.reduce((sum, account) => sum + account.openingBalance, 0) + state.transactions.filter((item) => item.date <= activeRange.end).reduce((sum, item) => sum + (item.kind === "income" ? item.amount : -item.amount), 0);
   const categorySpend = useMemo(() => rangeTransactions.filter((item) => item.kind === "expense").reduce<Record<string, number>>((result, item) => ({ ...result, [item.categoryId]: (result[item.categoryId] ?? 0) + item.amount }), {}), [rangeTransactions]);
+  const monthCategorySpend = useMemo(() => monthTransactions.filter((item) => item.kind === "expense").reduce<Record<string, number>>((result, item) => ({ ...result, [item.categoryId]: (result[item.categoryId] ?? 0) + item.amount }), {}), [monthTransactions]);
   const monthBudgets = state.budgets.filter((item) => item.month === selectedMonth);
   const budgetTotal = monthBudgets.reduce((sum, item) => sum + item.amount, 0);
   const commitmentStats = useMemo(() => {
@@ -299,19 +301,27 @@ export default function DemoPage() {
     const amount = Number(data.get("amount"));
     const kind = String(data.get("kind")) as Transaction["kind"];
     if (!amount || amount <= 0 || state.accounts.length === 0) return flash("أدخل مبلغًا صحيحًا وأضف حسابًا أولًا");
+    const accountId = String(data.get("accountId"));
+    if (!state.accounts.some((account) => account.id === accountId)) return flash("اختر حسابًا صالحًا");
     const selectedCategory = state.categories.find((category) => category.id === String(data.get("categoryId")) && category.kind === kind && !category.hidden);
     if (!selectedCategory) return flash("اختر تصنيفًا مناسبًا لنوع العملية");
+    const date = String(data.get("date") || dateKey());
     const transaction: Transaction = {
       id: crypto.randomUUID(),
       title: String(data.get("title")).trim(),
       amount,
       kind,
       categoryId: selectedCategory.id,
-      accountId: String(data.get("accountId")),
-      date: String(data.get("date")),
+      accountId,
+      date,
       note: String(data.get("note") ?? "").trim(),
     };
-    update((current) => ({ ...current, transactions: [transaction, ...current.transactions] }));
+    const monthly = kind === "expense" && String(data.get("recurrence")) === "monthly";
+    update((current) => ({
+      ...current,
+      transactions: [transaction, ...current.transactions],
+      commitments: monthly ? [...current.commitments, { id: crypto.randomUUID(), title: transaction.title, amount, dueDay: Number(date.slice(-2)), categoryId: selectedCategory.id, paidMonths: [date.slice(0, 7)] }] : current.commitments,
+    }));
     form.reset();
     setTransactionKind("expense");
     flash("تم حفظ العملية وتحديث الأرقام");
@@ -480,14 +490,14 @@ export default function DemoPage() {
     </aside>
 
     <section className="app-content">
-      <header className="topbar"><div className="mobile-brand"><Brand compact/></div><div className="welcome"><strong>مرحبًا، هذه أموالك بوضوح</strong><span>يتم حفظ كل تعديل تلقائيًا على هذا الجهاز</span></div><div className="header-actions"><button className="icon-button" aria-label="إعداد الإشعارات" onClick={() => setTab("reports")}><Icon name="bell" size={19}/><i className={notificationStatus === "ready" ? "ready" : notificationStatus === "blocked" ? "blocked" : ""}/></button><button className="primary-button" onClick={() => setTab("transactions")}><Icon name="plus" size={18}/><span>عملية جديدة</span></button></div></header>
+      <header className="topbar"><div className="mobile-brand"><Brand compact/></div><div className="welcome"><strong>مرحبًا، هذه أموالك بوضوح</strong><span>يتم حفظ كل تعديل تلقائيًا على هذا الجهاز</span></div><div className="header-actions"><Link className="text-button" href="/login?callbackUrl=/import-demo">حفظ ومزامنة</Link><button className="icon-button" aria-label="إعداد الإشعارات" onClick={() => setTab("reports")}><Icon name="bell" size={19}/><i className={notificationStatus === "ready" ? "ready" : notificationStatus === "blocked" ? "blocked" : ""}/></button><button className="primary-button" onClick={() => setTab("transactions")}><Icon name="plus" size={18}/><span>عملية جديدة</span></button></div></header>
 
       <main>
         <div className="page-toolbar"><div><span className="eyebrow">لوحة مالية شخصية</span><h1>{navigation.find((item) => item.id === tab)?.label}</h1></div>{tab === "accounts" || tab === "budgets" ? <MonthPicker value={selectedMonth} onChange={(month) => setAnchorDate(month === monthKey() ? dateKey() : `${month}-01`)}/> : null}</div>
         {tab === "overview" || tab === "transactions" || tab === "reports" ? <PeriodPicker period={period} anchor={anchorDate} onPeriodChange={setPeriod} onAnchorChange={setAnchorDate}/> : null}
         <PageGuide tab={tab}/>
 
-        {tab === "overview" && <Overview state={state} selectedMonth={selectedMonth} period={period} periodLabel={activeRange.label} rangeDays={activeRange.days} income={income} expenses={expenses} net={net} savingsRate={savingsRate} totalBalance={totalBalance} commitmentTotal={commitmentTotal} categorySpend={categorySpend} categoriesById={categoriesById} transactions={rangeTransactions} monthBudgets={monthBudgets} onNavigate={setTab}/>}
+        {tab === "overview" && <Overview state={state} selectedMonth={selectedMonth} period={period} periodLabel={activeRange.label} rangeDays={activeRange.days} income={income} expenses={expenses} net={net} savingsRate={savingsRate} totalBalance={totalBalance} commitmentTotal={commitmentTotal} categorySpend={categorySpend} monthCategorySpend={monthCategorySpend} categoriesById={categoriesById} transactions={rangeTransactions} monthBudgets={monthBudgets} onNavigate={setTab}/>}
 
         {tab === "accounts" && <div className="page-grid accounts-layout"><section><div className="section-heading"><div><h2>حساباتك</h2><p>أدخل ما لديك في البنك أو النقد أو الادخار كما هو الآن</p></div><span className="pill">{num(state.accounts.length)} حساب</span></div>{state.accounts.length === 0 ? <div className="card"><Empty title="ابدأ بأول حساب" body="أضف حسابك البنكي أو محفظتك النقدية وحدد الرصيد الحالي"/></div> : <div className="account-grid">{state.accounts.map((account) => {
           const balance = account.openingBalance + state.transactions.filter((item) => item.accountId === account.id && item.date.slice(0, 7) <= selectedMonth).reduce((sum, item) => sum + (item.kind === "income" ? item.amount : -item.amount), 0);
@@ -501,7 +511,7 @@ export default function DemoPage() {
           </section>
           <FormCard title="تسجيل حركة مالية" body="ابدأ بتحديد هل المبلغ دخل إلى حسابك أم خرج منه">
             <form onSubmit={addTransaction} className="form-stack">
-              {state.accounts.length === 0 ? <div className="form-alert">قبل تسجيل أي حركة: أضف حسابًا من صفحة الحسابات حتى نعرف أين يوجد المال.</div> : null}
+              {state.accounts.length === 0 ? <div className="form-alert account-required-alert"><span>قبل تسجيل أي حركة أضف حسابًا حتى نعرف أين يوجد المال.</span><button type="button" onClick={() => setTab("accounts")}>إضافة حساب الآن</button></div> : null}
               <div className="kind-picker" role="group" aria-label="نوع الحركة المالية">
                 <button type="button" className={transactionKind === "expense" ? "active expense" : ""} onClick={() => setTransactionKind("expense")}><Icon name="down" size={18}/><span><strong>مصروف</strong><small>مبلغ خرج من حسابي</small></span></button>
                 <button type="button" className={transactionKind === "income" ? "active income" : ""} onClick={() => setTransactionKind("income")}><Icon name="up" size={18}/><span><strong>دخل</strong><small>مبلغ وصل إلى حسابي</small></span></button>
@@ -510,8 +520,9 @@ export default function DemoPage() {
               <Field label="اسم العملية" hint="اكتب وصفًا تعرفه لاحقًا"><input className="field" name="title" required placeholder={transactionKind === "income" ? "مثال: راتب شهر أغسطس" : "مثال: فاتورة الكهرباء"}/></Field>
               <Field label="المبلغ بالريال"><input className="field number-input amount-field" name="amount" type="number" inputMode="decimal" step="0.01" min="0.01" required placeholder="0"/></Field>
               <Field label="التصنيف" hint={`${num(transactionCategories.length)} خيارًا مرتبة في مجموعات`}><select className="field" name="categoryId" key={transactionKind} defaultValue={transactionCategories[0]?.id}><CategoryOptions categories={transactionCategories}/></select></Field>
-              <Field label="الحساب" hint="أين دخل أو خرج المبلغ؟"><select className="field" name="accountId" defaultValue={state.accounts[0]?.id}>{state.accounts.map((item) => <option value={item.id} key={item.id}>{accountKindLabels[item.kind]} — {item.name}</option>)}</select></Field>
-              <div className="form-row"><Field label="التاريخ"><input className="field" name="date" type="date" defaultValue={anchorDate} max={dateKey()} required/></Field><Field label="ملاحظة" hint="اختياري"><input className="field" name="note" placeholder="تفصيل إضافي"/></Field></div>
+              <Field label="الحساب" hint="أين دخل أو خرج المبلغ؟"><select className="field" name="accountId" defaultValue={state.accounts[0]?.id ?? ""}>{state.accounts.length ? null : <option value="" disabled>أضف حسابًا أولًا</option>}{state.accounts.map((item) => <option value={item.id} key={item.id}>{accountKindLabels[item.kind]} — {item.name}</option>)}</select></Field>
+              {transactionKind === "expense" ? <Field label="التكرار" hint="مرة واحدة أم فاتورة شهرية؟"><select className="field" name="recurrence" defaultValue="once"><option value="once">مرة واحدة فقط</option><option value="monthly">متكررة كل شهر</option></select></Field> : <input type="hidden" name="recurrence" value="once"/>}
+              <details className="optional-fields"><summary>تغيير التاريخ أو إضافة ملاحظة</summary><div className="form-row"><Field label="تاريخ مختلف" hint="اتركه فارغًا لاستخدام اليوم"><input className="field" name="date" type="date" max={dateKey()}/></Field><Field label="ملاحظة" hint="اختياري"><input className="field" name="note" placeholder="تفصيل إضافي"/></Field></div></details>
               <button className="primary-button wide" type="submit" disabled={state.accounts.length === 0}><Icon name="check" size={18}/>حفظ {transactionKind === "income" ? "الدخل" : "المصروف"}</button>
             </form>
           </FormCard>
@@ -520,7 +531,7 @@ export default function DemoPage() {
         {tab === "budgets" && <div className="budget-page">
           <section className="budget-summary card"><div><span>ميزانية {monthLabel(selectedMonth)}</span><strong className="number">{sar(budgetTotal)}</strong><small>المصروف الفعلي {sar(monthExpenses)}</small></div><BudgetRing used={monthExpenses} total={budgetTotal}/><div><span>الالتزامات الشهرية</span><strong className="number">{sar(monthCommitmentTotal)}</strong><small>تم سداد {sar(monthPaidCommitmentTotal)}</small></div></section>
           <div className="page-grid budget-layout">
-            <section className="card budget-list"><div className="section-heading"><div><h2>حدود الصرف</h2><p>ضع سقفًا فقط للبنود التي تريد مراقبتها</p></div><span className="pill">خطة وليست مصروفًا</span></div>{monthBudgets.length ? monthBudgets.map((budget) => <BudgetLine key={budget.id} budget={budget} category={categoriesById[budget.categoryId]} used={categorySpend[budget.categoryId] ?? 0} onDelete={() => update((current) => ({ ...current, budgets: current.budgets.filter((item) => item.id !== budget.id) }))}/>) : <Empty title="لا توجد حدود صرف" body="هذا اختياري: اختر تصنيفًا مثل المطاعم وحدد الحد الذي لا تريد تجاوزه"/>}</section>
+            <section className="card budget-list"><div className="section-heading"><div><h2>حدود الصرف</h2><p>ضع سقفًا فقط للبنود التي تريد مراقبتها</p></div><span className="pill">خطة وليست مصروفًا</span></div>{monthBudgets.length ? monthBudgets.map((budget) => <BudgetLine key={budget.id} budget={budget} category={categoriesById[budget.categoryId]} used={monthCategorySpend[budget.categoryId] ?? 0} onDelete={() => update((current) => ({ ...current, budgets: current.budgets.filter((item) => item.id !== budget.id) }))}/>) : <Empty title="لا توجد حدود صرف" body="هذا اختياري: اختر تصنيفًا مثل المطاعم وحدد الحد الذي لا تريد تجاوزه"/>}</section>
             <div className="side-stack">
               <FormCard title="إضافة حد صرف" body="لا يخصم أي مبلغ؛ إنه هدف للمقارنة فقط"><form onSubmit={addBudget} className="form-stack"><Field label="بند المصروف"><select className="field" name="categoryId" defaultValue={expenseCategories[0]?.id}><CategoryOptions categories={expenseCategories}/></select></Field><Field label="الحد خلال الشهر"><input className="field number-input amount-field" type="number" inputMode="decimal" name="amount" min="1" step="0.01" required placeholder="0"/></Field><button className="primary-button wide" type="submit"><Icon name="target" size={18}/>حفظ حد الصرف</button></form></FormCard>
               <FormCard title="مكتبة التصنيفات" body="تصنيفات جاهزة مرتبة؛ يمكنك إخفاء ما لا تحتاجه أو إضافة تصنيفك"><form onSubmit={addCategory} className="category-form"><input className="field" name="name" required placeholder="تصنيف جديد"/><select className="field" name="kind" value={categoryView} onChange={(event) => setCategoryView(event.target.value as Category["kind"])}><option value="expense">مصروف</option><option value="income">دخل</option></select><button className="primary-button" type="submit" aria-label="إضافة التصنيف"><Icon name="plus"/></button></form><CategoryLibrary categories={state.categories} kind={categoryView} onKindChange={setCategoryView} onRemove={removeCategory} onRestore={restoreCategory}/></FormCard>
@@ -537,9 +548,9 @@ export default function DemoPage() {
   </div>;
 }
 
-function Overview({ selectedMonth, period, periodLabel, rangeDays, income, expenses, net, savingsRate, totalBalance, commitmentTotal, categorySpend, categoriesById, transactions, monthBudgets, state, onNavigate }: { selectedMonth: string; period: PeriodKey; periodLabel: string; rangeDays: number; income: number; expenses: number; net: number; savingsRate: number; totalBalance: number; commitmentTotal: number; categorySpend: Record<string, number>; categoriesById: Record<string, Category>; transactions: Transaction[]; monthBudgets: Budget[]; state: DemoState; onNavigate: (tab: Tab) => void }) {
+function Overview({ selectedMonth, period, periodLabel, rangeDays, income, expenses, net, savingsRate, totalBalance, commitmentTotal, categorySpend, monthCategorySpend, categoriesById, transactions, monthBudgets, state, onNavigate }: { selectedMonth: string; period: PeriodKey; periodLabel: string; rangeDays: number; income: number; expenses: number; net: number; savingsRate: number; totalBalance: number; commitmentTotal: number; categorySpend: Record<string, number>; monthCategorySpend: Record<string, number>; categoriesById: Record<string, Category>; transactions: Transaction[]; monthBudgets: Budget[]; state: DemoState; onNavigate: (tab: Tab) => void }) {
   const topSpend = Object.entries(categorySpend).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const budgetUsed = monthBudgets.reduce((sum, budget) => sum + Math.min(categorySpend[budget.categoryId] ?? 0, budget.amount), 0);
+  const budgetUsed = monthBudgets.reduce((sum, budget) => sum + Math.min(monthCategorySpend[budget.categoryId] ?? 0, budget.amount), 0);
   const hasData = state.accounts.length > 0 || state.transactions.length > 0 || state.commitments.length > 0 || state.budgets.length > 0;
   return <div className="overview">
     {!hasData ? <section className="setup-guide card"><div><span className="setup-badge">بداية نظيفة</span><h2>كل الأرقام صفر حتى تدخل بياناتك بنفسك</h2><p>ابدأ بالحساب والرصيد الموجود الآن، ثم سجّل دخلك ومصروفك والتزاماتك.</p></div><div className="setup-steps"><button onClick={() => onNavigate("accounts")}><b>١</b><span><strong>أضف حسابك</strong><small>البنك أو النقد والرصيد الحالي</small></span></button><button onClick={() => onNavigate("transactions")}><b>٢</b><span><strong>سجّل الدخل والمصروف</strong><small>أرقامك الحقيقية لهذا الشهر</small></span></button><button onClick={() => onNavigate("budgets")}><b>٣</b><span><strong>أضف التزاماتك</strong><small>الأقساط والفواتير الثابتة</small></span></button></div></section> : null}
@@ -618,6 +629,7 @@ declare global {
       scheduleReminder?: (frequency: ReminderFrequency, hour: number, minute: number) => void;
       cancelReminder?: () => void;
       openNotificationSettings?: () => void;
+      openExternalAuth?: (url: string) => void;
     };
   }
 }

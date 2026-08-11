@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { money } from "@/lib/money";
 import { requireUserId } from "@/lib/current-user";
@@ -12,6 +13,12 @@ const amount = (data: FormData, key: string) => {
   if (value.lte(0)) throw new Error("يجب أن يكون المبلغ أكبر من صفر");
   return value;
 };
+
+const recurringSchema = z.object({
+  name: z.string().trim().min(2).max(120), amount: z.coerce.number().positive().max(999_999_999_999),
+  transactionType: z.enum(["INCOME", "EXPENSE"]), frequency: z.enum(["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]),
+  nextDueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), accountId: z.string().min(1), categoryId: z.string().optional(),
+});
 
 export async function createBudget(data: FormData) {
   const userId = await requireUserId();
@@ -25,16 +32,24 @@ export async function createBudget(data: FormData) {
 export async function createCategory(data: FormData) {
   const userId = await requireUserId(); const name = text(data, "name");
   if (!name) throw new Error("اسم التصنيف مطلوب");
-  await db.category.upsert({ where: { userId_name: { userId, name } }, update: {}, create: { userId, name, color: text(data, "color") || "#0f766e", isEssential: data.get("isEssential") === "on" } });
+  const kind = text(data, "kind") === "INCOME" ? "INCOME" : "EXPENSE";
+  await db.category.upsert({ where: { userId_name: { userId, name } }, update: { kind }, create: { userId, name, kind, color: text(data, "color") || "#0f766e", isEssential: data.get("isEssential") === "on" } });
   revalidatePath("/budgets"); revalidatePath("/transactions");
 }
 
 export async function createRecurring(data: FormData) {
   const userId = await requireUserId();
-  const accountId = text(data, "accountId") || null;
-  if (accountId && !await db.account.count({ where: { id: accountId, userId } })) throw new Error("حساب غير صالح");
-  await db.recurringPayment.create({ data: { userId, name: text(data, "name"), amount: amount(data, "amount"), frequency: text(data, "frequency") as "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY", nextDueAt: new Date(text(data, "nextDueAt")), accountId } });
+  const parsed = recurringSchema.safeParse({ name: data.get("name"), amount: data.get("amount"), transactionType: data.get("transactionType") || "EXPENSE", frequency: data.get("frequency"), nextDueAt: data.get("nextDueAt"), accountId: data.get("accountId"), categoryId: String(data.get("categoryId") || "") || undefined });
+  if (!parsed.success) throw new Error("تحقق من بيانات الالتزام");
+  const [account, category] = await Promise.all([
+    db.financialAccount.findFirst({ where: { id: parsed.data.accountId, userId, isArchived: false } }),
+    parsed.data.categoryId ? db.category.findFirst({ where: { id: parsed.data.categoryId, userId } }) : null,
+  ]);
+  if (!account) throw new Error("أضف حسابًا صالحًا أولًا");
+  if (category && category.kind !== parsed.data.transactionType) throw new Error("التصنيف لا يطابق نوع الالتزام");
+  await db.recurringPayment.create({ data: { userId, name: parsed.data.name, amount: money(parsed.data.amount), transactionType: parsed.data.transactionType, frequency: parsed.data.frequency, nextDueAt: new Date(`${parsed.data.nextDueAt}T12:00:00.000Z`), accountId: account.id, categoryId: category?.id ?? null } });
   revalidatePath("/recurring");
+  revalidatePath("/dashboard");
 }
 
 export async function createDebt(data: FormData) {
@@ -60,7 +75,9 @@ export async function createGoldAsset(data: FormData) {
   const requestedId = text(data, "investmentId");
   const existing = requestedId ? await db.investment.findFirst({ where: { id: requestedId, userId } }) : null;
   const investment = existing || await db.investment.create({ data: { userId, name: "الذهب" } });
-  await db.goldAsset.create({ data: { investmentId: investment.id, quantityGrams: money(text(data, "quantityGrams")), purchasePricePerGram: money(text(data, "purchasePricePerGram")), currentPricePerGram: text(data, "currentPricePerGram") ? money(text(data, "currentPricePerGram")) : null, purchasedAt: new Date(text(data, "purchasedAt")) } });
+  const quantityGrams = new Prisma.Decimal(text(data, "quantityGrams")).toDecimalPlaces(4);
+  if (quantityGrams.lte(0)) throw new Error("كمية الذهب يجب أن تكون أكبر من صفر");
+  await db.goldAsset.create({ data: { investmentId: investment.id, quantityGrams, purchasePricePerGram: money(text(data, "purchasePricePerGram")), currentPricePerGram: text(data, "currentPricePerGram") ? money(text(data, "currentPricePerGram")) : null, purchasedAt: new Date(text(data, "purchasedAt")) } });
   revalidatePath("/investments");
 }
 
@@ -83,7 +100,7 @@ export async function recordDebtPayment(data: FormData) {
   const paymentAmount = amount(data, "amount");
   const [debt, account] = await Promise.all([
     db.debt.findFirst({ where: { id: debtId, userId }, include: { payments: true } }),
-    db.account.findFirst({ where: { id: accountId, userId, isArchived: false } }),
+    db.financialAccount.findFirst({ where: { id: accountId, userId, isArchived: false } }),
   ]);
   if (!debt || !account) throw new Error("بيانات السداد غير صالحة");
   const paid = debt.payments.reduce((sum, payment) => sum.plus(payment.amount), money(0));
@@ -116,4 +133,5 @@ export async function toggleRecurring(data: FormData) {
   if (!row) throw new Error("الالتزام غير موجود");
   await db.recurringPayment.update({ where: { id }, data: { active: !row.active } });
   revalidatePath("/recurring");
+  revalidatePath("/dashboard");
 }

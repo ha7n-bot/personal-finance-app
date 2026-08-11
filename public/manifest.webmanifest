@@ -4,8 +4,8 @@
   "description": "ملخص أموالك وميزانيتك وعملياتك في مكان واحد",
   "lang": "ar",
   "dir": "rtl",
-  "id": "/demo",
-  "start_url": "/demo?source=pwa",
+  "id": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -16,7 +16,7 @@
     { "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ],
   "shortcuts": [
-    { "name": "إضافة عملية", "short_name": "عملية جديدة", "url": "/demo?tab=transactions", "icons": [{ "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
-    { "name": "الميزانية", "short_name": "الميزانية", "url": "/demo?tab=budgets", "icons": [{ "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+    { "name": "إضافة عملية", "short_name": "عملية جديدة", "url": "/transactions", "icons": [{ "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "الدفعات المتكررة", "short_name": "الدفعات", "url": "/recurring", "icons": [{ "src": "/icons/mali-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
   ]
 }
