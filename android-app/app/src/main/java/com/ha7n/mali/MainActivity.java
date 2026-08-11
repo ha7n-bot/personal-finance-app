@@ -27,8 +27,10 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 public final class MainActivity extends Activity {
-    public static final String APP_ORIGIN = "https://personal-finance-app-rose-psi.vercel.app";
+    public static final String APP_ORIGIN = "https://mali-finance-app-zord2.vercel.app";
     public static final String APP_URL = APP_ORIGIN + "/";
+    private static final String APP_HOST = "mali-finance-app-zord2.vercel.app";
+    private static final int WEB_CACHE_VERSION = 7;
     public static final String CHANNEL_ID = "mali_financial_reminders";
     private static final int NOTIFICATION_REQUEST = 210;
     private WebView webView;
@@ -63,7 +65,8 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/6.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/6.1");
+        clearWebCacheAfterUpgrade();
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
         CookieManager.getInstance().setAcceptCookie(true);
@@ -83,7 +86,7 @@ public final class MainActivity extends Activity {
                     openMobileExchange(uri);
                     return true;
                 }
-                if ("personal-finance-app-rose-psi.vercel.app".equals(uri.getHost())) return false;
+                if (APP_HOST.equals(uri.getHost())) return false;
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
                     return true;
@@ -201,7 +204,7 @@ public final class MainActivity extends Activity {
         public void openExternalAuth(String url) {
             runOnUiThread(() -> {
                 Uri uri = Uri.parse(url);
-                if (!"https".equals(uri.getScheme()) || !"personal-finance-app-rose-psi.vercel.app".equals(uri.getHost())) return;
+                if (!"https".equals(uri.getScheme()) || !APP_HOST.equals(uri.getHost())) return;
                 try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
                 catch (Exception ignored) { Toast.makeText(MainActivity.this, "تعذر فتح تسجيل Google", Toast.LENGTH_LONG).show(); }
             });
@@ -214,6 +217,17 @@ public final class MainActivity extends Activity {
         if (token == null || token.length() < 32) return false;
         webView.loadUrl(APP_ORIGIN + "/mobile-auth/exchange#token=" + Uri.encode(token));
         return true;
+    }
+
+    private void clearWebCacheAfterUpgrade() {
+        int previousVersion = getSharedPreferences("mali_app", MODE_PRIVATE)
+                .getInt("web_cache_version", 0);
+        if (previousVersion == WEB_CACHE_VERSION) return;
+        webView.clearCache(true);
+        getSharedPreferences("mali_app", MODE_PRIVATE)
+                .edit()
+                .putInt("web_cache_version", WEB_CACHE_VERSION)
+                .apply();
     }
 
     @Override

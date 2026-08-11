@@ -54,13 +54,13 @@ jobs:
         run: gradle --no-daemon :app:assembleRelease
 
       - name: Prepare download file
-        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v6.apk
+        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v6.1.apk
 
       - name: Keep workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android-v6
-          path: Mali-Android-v6.apk
+          name: Mali-Android-v6.1
+          path: Mali-Android-v6.1.apk
           if-no-files-found: error
 
       - name: Publish direct-download release from main
@@ -68,11 +68,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v6.0.0 >/dev/null 2>&1; then
-            gh release upload android-v6.0.0 Mali-Android-v6.apk --clobber
+          if gh release view android-v6.1.0 >/dev/null 2>&1; then
+            gh release upload android-v6.1.0 Mali-Android-v6.1.apk --clobber
           else
-            gh release create android-v6.0.0 Mali-Android-v6.apk \
+            gh release create android-v6.1.0 Mali-Android-v6.1.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي لأندرويد — الإصدار 6.0" \
-              --notes "الإصدار الفعلي من مالي: تسجيل Google والبريد، حفظ سحابي، عملية مرة واحدة، فاتورة شهرية مستمرة، أقساط محددة مع متابعة المتبقي، وخط عربي واضح قابل للتعديل من الإعدادات."
+              --title "مالي لأندرويد — الإصدار 6.1" \
+              --notes "إصدار مالي 6.1 على النطاق الجديد: تسجيل Google والبريد، حفظ سحابي، عملية مرة واحدة، فاتورة شهرية مستمرة، أقساط محددة مع متابعة المتبقي، وخط عربي واضح، مع تنظيف ذاكرة WebView القديمة عند الترقية."
           fi
