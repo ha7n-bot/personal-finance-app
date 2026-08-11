@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { AppIcon } from "@/components/app-icon";
+import { GoogleMark } from "@/components/google-connect-button";
 
-export function AuthForm({ mode, googleEnabled, callbackUrl }: { mode: "login" | "register"; googleEnabled: boolean; callbackUrl?: string }) {
+export function AuthForm({ mode, googleEnabled, callbackUrl, initialError = "" }: { mode: "login" | "register"; googleEnabled: boolean; callbackUrl?: string; initialError?: string }) {
   const router = useRouter();
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
 
   async function continueWithGoogle() {
@@ -39,17 +41,26 @@ export function AuthForm({ mode, googleEnabled, callbackUrl }: { mode: "login" |
   }
 
   return <div className="auth-options">
-    {googleEnabled ? <><button className="google-button" type="button" onClick={continueWithGoogle} disabled={busy}><GoogleMark/>المتابعة باستخدام Google</button><div className="auth-divider"><span>أو بالبريد الإلكتروني</span></div></> : null}
-    <form action={submit} className="space-y-4">
-      {mode === "register" ? <label className="auth-field"><span>الاسم</span><input className="field" name="name" autoComplete="name" required minLength={2} placeholder="اسمك"/></label> : null}
-      <label className="auth-field"><span>البريد الإلكتروني</span><input className="field" name="email" type="email" inputMode="email" autoComplete="email" required placeholder="name@example.com" dir="ltr"/></label>
-      <label className="auth-field"><span>كلمة المرور</span><input className="field" name="password" type="password" minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} required placeholder="8 أحرف على الأقل"/></label>
-      {error ? <p className="auth-error" role="alert">{error}</p> : null}
-      <button className="btn w-full" disabled={busy}>{busy ? "جارٍ المتابعة…" : mode === "login" ? "تسجيل الدخول" : "إنشاء الحساب"}</button>
-    </form>
-  </div>;
-}
+    <section className="google-auth-panel">
+      <span className="recommended-badge"><AppIcon name="cloud" size={16}/>الخيار الموصى به</span>
+      <button className="google-button" type="button" onClick={continueWithGoogle} disabled={busy || !googleEnabled}>
+        <span className="google-mark-wrap"><GoogleMark size={24}/></span>
+        <span><strong>{busy ? "جارٍ فتح Google…" : "المتابعة باستخدام Google"}</strong><small>حساب واحد يحفظ بياناتك ويعيدها على الجوال والويب</small></span>
+        <AppIcon name="arrow" size={19}/>
+      </button>
+      {!googleEnabled ? <p className="auth-provider-notice"><AppIcon name="info" size={17}/>ربط Google غير مكتمل على الخادم حاليًا. يمكنك استخدام البريد مؤقتًا إلى أن يكتمل التفعيل.</p> : null}
+      <div className="cloud-assurances"><span><AppIcon name="sync" size={16}/>حفظ تلقائي</span><span><AppIcon name="lock" size={16}/>بيانات خاصة بك</span><span><AppIcon name="accounts" size={16}/>تعمل على أكثر من جهاز</span></div>
+    </section>
+    {error ? <p className="auth-error" role="alert">{error}</p> : null}
 
-function GoogleMark() {
-  return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"/><path fill="#34A853" d="M12 22c2.7 0 4.98-.9 6.64-2.36l-3.24-2.54c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.39 13.93A6.02 6.02 0 0 1 6.08 12c0-.67.11-1.32.31-1.93V7.45H3.04A10 10 0 0 0 2 12c0 1.61.39 3.14 1.04 4.55l3.35-2.62Z"/><path fill="#EA4335" d="M12 5.94c1.47 0 2.79.51 3.83 1.5l2.88-2.88A9.68 9.68 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z"/></svg>;
+    <details className="email-auth" open={!googleEnabled}>
+      <summary><span>الدخول بالبريد وكلمة المرور</span><small>خيار بديل</small></summary>
+      <form action={submit} className="auth-email-form">
+        {mode === "register" ? <label className="auth-field"><span>الاسم</span><input className="field" name="name" autoComplete="name" required minLength={2} placeholder="اسمك"/></label> : null}
+        <label className="auth-field"><span>البريد الإلكتروني</span><input className="field" name="email" type="email" inputMode="email" autoComplete="email" required placeholder="name@example.com" dir="ltr"/></label>
+        <label className="auth-field"><span>كلمة المرور</span><input className="field" name="password" type="password" minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} required placeholder="8 أحرف على الأقل"/></label>
+        <button className="btn w-full" disabled={busy}>{busy ? "جارٍ المتابعة…" : mode === "login" ? "تسجيل الدخول بالبريد" : "إنشاء الحساب بالبريد"}</button>
+      </form>
+    </details>
+  </div>;
 }

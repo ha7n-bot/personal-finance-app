@@ -45,24 +45,24 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Prepare download file
-        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Mali-Android-v4-Preview.apk
+        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk Mali-Android-v5-Preview.apk
 
       - name: Keep workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android-v4-Preview
-          path: Mali-Android-v4-Preview.apk
+          name: Mali-Android-v5-Preview
+          path: Mali-Android-v5-Preview.apk
           if-no-files-found: error
 
       - name: Publish direct-download release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v4.0.0-preview.1 >/dev/null 2>&1; then
-            gh release upload android-v4.0.0-preview.1 Mali-Android-v4-Preview.apk --clobber
+          if gh release view android-v5.0.0-preview.1 >/dev/null 2>&1; then
+            gh release upload android-v5.0.0-preview.1 Mali-Android-v5-Preview.apk --clobber
           else
-            gh release create android-v4.0.0-preview.1 Mali-Android-v4-Preview.apk \
+            gh release create android-v5.0.0-preview.1 Mali-Android-v5-Preview.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي للجوال — الإصدار 4.0 التجريبي" \
-              --notes "نسخة اختبارية منفصلة تُثبت بجانب النسخة القديمة، وتوحّد تسجيل الدخول بين الجوال والويب، وتدعم Google عبر المتصفح الآمن، وتحسّن العمليات المتكررة ووضوح الواجهة."
+              --title "مالي للجوال — الإصدار 5.0 التجريبي" \
+              --notes "نسخة اختبارية بواجهة بداية أوضح، وتسجيل Google بارز، وحفظ سحابي للحساب، وإعدادات لحجم الخط وسُمكه والتباين، ولوحة مالية ورسوم بيانية محسنة. تُثبت بجانب النسخة القديمة."
           fi

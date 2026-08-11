@@ -1,16 +1,16 @@
-import Image from "next/image";
 import Link from "next/link";
 import { AuthForm } from "@/components/auth-form";
+import { AuthPageShell } from "@/components/auth-page-shell";
 import { googleEnabled } from "@/auth";
 
-export default async function Login({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
-  const requested = (await searchParams).callbackUrl;
+export default async function Login({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; error?: string }> }) {
+  const params = await searchParams;
+  const requested = params.callbackUrl;
   const callbackUrl = requested?.startsWith("/") && !requested.startsWith("//") ? requested : undefined;
-  return <main className="auth-page"><section className="auth-card card">
-    <div className="auth-brand"><Image src="/icons/mali-icon.svg" alt="" width={52} height={52} priority unoptimized/><div><strong>مالي</strong><span>أموالك أوضح، قراراتك أذكى</span></div></div>
-    <p className="muted">مرحبًا بعودتك</p><h1>دخول إلى حسابك</h1><p className="auth-intro">ادخل من أي جهاز، وستبقى حساباتك وعملياتك محفوظة في مكان واحد.</p>
-    <AuthForm mode="login" googleEnabled={googleEnabled} callbackUrl={callbackUrl}/>
-    <p className="auth-footer">ليس لديك حساب؟ <Link href={{ pathname: "/register", query: callbackUrl ? { callbackUrl } : {} }}>أنشئ حسابًا</Link></p>
-    <Link className="guest-link" href="/demo">متابعة بدون تسجيل على هذا الجهاز فقط</Link>
-  </section></main>;
+  const initialError = params.error === "OAuthAccountNotLinked"
+    ? "يوجد حساب بالبريد نفسه. ادخل بالبريد وكلمة المرور أولًا، ثم اربط Google بأمان من الإعدادات."
+    : params.error ? "لم يكتمل تسجيل الدخول. أعد المحاولة واختر حساب Google الصحيح." : "";
+  return <AuthPageShell eyebrow="مرحبًا بعودتك" title="دخول إلى حسابك" intro="اختر Google للدخول السريع واستعادة بياناتك تلقائيًا على أي جهاز." footer={<><p>ليس لديك حساب؟ <Link href={{ pathname: "/register", query: callbackUrl ? { callbackUrl } : {} }}>أنشئ حسابًا</Link></p><Link className="guest-link" href="/demo">تجربة محلية بدون حفظ سحابي</Link></>}>
+    <AuthForm mode="login" googleEnabled={googleEnabled} callbackUrl={callbackUrl} initialError={initialError}/>
+  </AuthPageShell>;
 }

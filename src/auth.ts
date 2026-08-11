@@ -40,19 +40,29 @@ const mobileTokenProvider = Credentials({
 });
 
 const providers: NextAuthConfig["providers"] = [credentialsProvider, mobileTokenProvider];
-const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
+const googleClientId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+const googleEnabled = Boolean(googleClientId && googleClientSecret);
 if (googleEnabled) providers.unshift(Google({
-  clientId: process.env.AUTH_GOOGLE_ID!,
-  clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-  allowDangerousEmailAccountLinking: true,
+  clientId: googleClientId!,
+  clientSecret: googleClientSecret!,
 }));
 
 export const authConfig = {
   adapter: PrismaAdapter(db),
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers,
+  events: {
+    async createUser({ user }) {
+      if (user.id) await ensureUserWorkspace(user.id);
+    },
+    async linkAccount({ user }) {
+      if (user.id) await ensureUserWorkspace(user.id);
+    },
+  },
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google" && (profile as { email_verified?: boolean } | undefined)?.email_verified !== true) return false;

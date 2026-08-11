@@ -1,15 +1,16 @@
-import Image from "next/image";
 import Link from "next/link";
 import { AuthForm } from "@/components/auth-form";
+import { AuthPageShell } from "@/components/auth-page-shell";
 import { googleEnabled } from "@/auth";
 
-export default async function Register({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
-  const requested = (await searchParams).callbackUrl;
+export default async function Register({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; error?: string }> }) {
+  const params = await searchParams;
+  const requested = params.callbackUrl;
   const callbackUrl = requested?.startsWith("/") && !requested.startsWith("//") ? requested : undefined;
-  return <main className="auth-page"><section className="auth-card card">
-    <div className="auth-brand"><Image src="/icons/mali-icon.svg" alt="" width={52} height={52} priority unoptimized/><div><strong>مالي</strong><span>حساب واحد للجوال والويب</span></div></div>
-    <p className="muted">ابدأ رحلتك المالية</p><h1>إنشاء حساب آمن</h1><p className="auth-intro">سجّل باستخدام Google أو البريد الإلكتروني، ثم أضف حسابك المالي الأول.</p>
-    <AuthForm mode="register" googleEnabled={googleEnabled} callbackUrl={callbackUrl}/>
-    <p className="auth-footer">لديك حساب؟ <Link href={{ pathname: "/login", query: callbackUrl ? { callbackUrl } : {} }}>سجّل الدخول</Link></p>
-  </section></main>;
+  const initialError = params.error === "OAuthAccountNotLinked"
+    ? "هذا البريد مسجل مسبقًا. ادخل بالبريد وكلمة المرور، ثم اربط Google بأمان من الإعدادات."
+    : params.error ? "لم يكتمل إنشاء الحساب باستخدام Google. أعد المحاولة." : "";
+  return <AuthPageShell eyebrow="ابدأ بخطوات بسيطة" title="إنشاء حساب مالي" intro="Google هو الطريق الأسرع: ضغطة واحدة، ثم تبقى بياناتك مرتبطة بحسابك." footer={<p>لديك حساب؟ <Link href={{ pathname: "/login", query: callbackUrl ? { callbackUrl } : {} }}>سجّل الدخول</Link></p>}>
+    <AuthForm mode="register" googleEnabled={googleEnabled} callbackUrl={callbackUrl} initialError={initialError}/>
+  </AuthPageShell>;
 }
