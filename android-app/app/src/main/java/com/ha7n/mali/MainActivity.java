@@ -28,9 +28,12 @@ import android.widget.Toast;
 
 public final class MainActivity extends Activity {
     public static final String APP_ORIGIN = "https://mali-finance-app-zord2.vercel.app";
-    public static final String APP_URL = APP_ORIGIN + "/";
+    public static final String APP_URL = APP_ORIGIN + "/demo";
     private static final String APP_HOST = "mali-finance-app-zord2.vercel.app";
-    private static final int WEB_CACHE_VERSION = 7;
+    private static final int WEB_CACHE_VERSION = 8;
+    private static final String FINANCE_PREFS = "mali_finance_local";
+    private static final String FINANCE_DATA_KEY = "finance_state_v1";
+    private static final int MAX_BACKUP_BYTES = 2_000_000;
     public static final String CHANNEL_ID = "mali_financial_reminders";
     private static final int NOTIFICATION_REQUEST = 210;
     private WebView webView;
@@ -65,7 +68,7 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/6.1");
+        settings.setUserAgentString(settings.getUserAgentString() + " MaliAndroid/7.0");
         clearWebCacheAfterUpgrade();
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
@@ -100,6 +103,7 @@ public final class MainActivity extends Activity {
                 progressBar.setVisibility(View.GONE);
                 CookieManager.getInstance().flush();
                 sendNotificationStatusToWeb();
+                if (url != null && url.startsWith(APP_ORIGIN + "/demo")) installFinanceBackupBridge();
             }
 
             @Override
@@ -171,6 +175,20 @@ public final class MainActivity extends Activity {
         webView.post(() -> webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('mali-notification-status',{detail:{enabled:" + enabled + "}}));", null));
     }
 
+    private void installFinanceBackupBridge() {
+        if (webView == null) return;
+        String script = "(function(){try{" +
+                "const K='mali-finance-v3-clean';" +
+                "const meaningful=(raw)=>{try{const s=JSON.parse(raw||'null');return !!s&&([s.accounts,s.transactions,s.budgets,s.commitments].some(a=>Array.isArray(a)&&a.length>0));}catch(e){return false;}};" +
+                "const nativeRaw=window.MaliAndroid.loadFinanceData();const localRaw=localStorage.getItem(K);" +
+                "if(meaningful(nativeRaw)&&!meaningful(localRaw)){localStorage.setItem(K,nativeRaw);location.reload();return;}" +
+                "if(localRaw&&(!nativeRaw||meaningful(localRaw)))window.MaliAndroid.persistFinanceData(localRaw);" +
+                "if(window.__maliBackupTimer)clearInterval(window.__maliBackupTimer);" +
+                "let last=localStorage.getItem(K)||'';window.__maliBackupTimer=setInterval(()=>{const now=localStorage.getItem(K)||'';if(now!==last){last=now;window.MaliAndroid.persistFinanceData(now);}},1200);" +
+                "}catch(e){}})();";
+        webView.evaluateJavascript(script, null);
+    }
+
     private final class MaliBridge {
         @JavascriptInterface
         public void requestNotifications() {
@@ -208,6 +226,17 @@ public final class MainActivity extends Activity {
                 try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
                 catch (Exception ignored) { Toast.makeText(MainActivity.this, "تعذر فتح تسجيل Google", Toast.LENGTH_LONG).show(); }
             });
+        }
+
+        @JavascriptInterface
+        public void persistFinanceData(String value) {
+            if (value == null || value.isEmpty() || value.getBytes().length > MAX_BACKUP_BYTES) return;
+            getSharedPreferences(FINANCE_PREFS, MODE_PRIVATE).edit().putString(FINANCE_DATA_KEY, value).apply();
+        }
+
+        @JavascriptInterface
+        public String loadFinanceData() {
+            return getSharedPreferences(FINANCE_PREFS, MODE_PRIVATE).getString(FINANCE_DATA_KEY, "");
         }
     }
 
