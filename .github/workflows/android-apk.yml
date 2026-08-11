@@ -29,6 +29,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify fully offline Android shell
+        run: |
+          if grep -R "vercel.app" android-app; then
+            echo "Android must not depend on Vercel"
+            exit 1
+          fi
+          grep -q 'file:///android_asset/index.html' android-app/app/src/main/java/com/ha7n/mali/MainActivity.java
+          grep -q 'mali-offline-v8' android-app/app/src/main/assets/index.html
+          python3 - <<'PY'
+          import re, pathlib
+          text = pathlib.Path('android-app/app/src/main/assets/index.html').read_text()
+          match = re.search(r'<script>([\s\S]*?)</script>', text)
+          if not match:
+              raise SystemExit('Missing local app script')
+          pathlib.Path('/tmp/mali-offline.js').write_text(match.group(1))
+          PY
+          node --check /tmp/mali-offline.js
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
