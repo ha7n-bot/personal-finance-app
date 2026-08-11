@@ -1,4 +1,4 @@
-const CACHE = "mali-shell-v6-1";
+const CACHE = "mali-shell-v7";
 const APP_SHELL = ["/demo", "/manifest.webmanifest", "/icons/mali-icon.svg"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim())));
@@ -10,4 +10,4 @@ self.addEventListener("fetch", (event) => {
   if (!safe) return;
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => { if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy))); } return response; })));
 });
-self.addEventListener("notificationclick", (event) => { event.notification.close(); event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => { const open = windows.find((client) => client.url.startsWith(self.location.origin)); return open ? open.focus() : clients.openWindow("/"); })); });
+self.addEventListener("notificationclick", (event) => { event.notification.close(); event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => { const open = windows.find((client) => client.url.startsWith(self.location.origin)); return open ? open.focus() : clients.openWindow("/demo"); })); });
