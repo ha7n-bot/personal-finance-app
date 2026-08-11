@@ -2,6 +2,11 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "android-app/**"
+      - ".github/workflows/android-apk.yml"
   push:
     branches: [main, agent/production-v6-installments]
     paths:
@@ -10,6 +15,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: mali-android-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-apk:
