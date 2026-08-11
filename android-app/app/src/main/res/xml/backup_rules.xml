@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="sharedpref" path="mali_finance_local.xml" />
+    <include domain="sharedpref" path="mali_reminder_preferences.xml" />
+</full-backup-content>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="mali_finance_local.xml" />
+        <include domain="sharedpref" path="mali_reminder_preferences.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="mali_finance_local.xml" />
+        <include domain="sharedpref" path="mali_reminder_preferences.xml" />
+    </device-transfer>
+</data-extraction-rules>

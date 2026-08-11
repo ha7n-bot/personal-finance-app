@@ -8,7 +8,7 @@ on:
       - "android-app/**"
       - ".github/workflows/android-apk.yml"
   push:
-    branches: [main, agent/production-v6-installments]
+    branches: [main, agent/android-local-first-v7]
     paths:
       - "android-app/**"
       - ".github/workflows/android-apk.yml"
@@ -54,13 +54,13 @@ jobs:
         run: gradle --no-daemon :app:assembleRelease
 
       - name: Prepare download file
-        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v6.1.apk
+        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v7.apk
 
       - name: Keep workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android-v6.1
-          path: Mali-Android-v6.1.apk
+          name: Mali-Android-v7
+          path: Mali-Android-v7.apk
           if-no-files-found: error
 
       - name: Publish direct-download release from main
@@ -68,11 +68,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v6.1.0 >/dev/null 2>&1; then
-            gh release upload android-v6.1.0 Mali-Android-v6.1.apk --clobber
+          if gh release view android-v7.0.0 >/dev/null 2>&1; then
+            gh release upload android-v7.0.0 Mali-Android-v7.apk --clobber
           else
-            gh release create android-v6.1.0 Mali-Android-v6.1.apk \
+            gh release create android-v7.0.0 Mali-Android-v7.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي لأندرويد — الإصدار 6.1" \
-              --notes "إصدار مالي 6.1 على النطاق الجديد: تسجيل Google والبريد، حفظ سحابي، عملية مرة واحدة، فاتورة شهرية مستمرة، أقساط محددة مع متابعة المتبقي، وخط عربي واضح، مع تنظيف ذاكرة WebView القديمة عند الترقية."
+              --title "مالي لأندرويد — الإصدار 7.0" \
+              --notes "إصدار محلي أولًا بدون تسجيل دخول إجباري. يحفظ بيانات مالي على الجهاز، ينسخ الحالة المالية إلى تخزين Android الخاص بالتطبيق، يدعم النسخ الاحتياطي والاستعادة عبر نظام Android عند تفعيله، ويحافظ على التذكيرات والوضع دون اتصال."
           fi
