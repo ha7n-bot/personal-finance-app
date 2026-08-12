@@ -32,3 +32,5 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+// مالي 8.1.0: professional offline finance release.
