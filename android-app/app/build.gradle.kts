@@ -10,8 +10,8 @@ android {
         applicationId = "com.ha7n.mali"
         minSdk = 24
         targetSdk = 35
-        versionCode = 13
-        versionName = "8.2.1"
+        versionCode = 14
+        versionName = "8.3.0"
     }
 
     buildTypes {
@@ -33,4 +33,4 @@ android {
     }
 }
 
-// مالي 8.2.1: whole-riyal money model, whole-riyal editing, and simplified mobile UX.
+// مالي 8.3.0: partial monthly commitment payments and simpler commitments UX.
