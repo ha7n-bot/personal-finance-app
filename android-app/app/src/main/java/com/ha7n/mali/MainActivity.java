@@ -34,7 +34,7 @@ import java.nio.charset.StandardCharsets;
 
 public final class MainActivity extends Activity {
     private static final String APP_URL = "file:///android_asset/index.html";
-    private static final int WEB_CACHE_VERSION = 9;
+    private static final int WEB_CACHE_VERSION = 10;
     private static final String FINANCE_PREFS = "mali_finance_local";
     private static final String FINANCE_DATA_KEY = "finance_state_v1";
     private static final int MAX_BACKUP_BYTES = 2_000_000;
@@ -51,8 +51,6 @@ public final class MainActivity extends Activity {
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(Color.rgb(7, 23, 19));
-        getWindow().setNavigationBarColor(Color.rgb(7, 19, 15));
         createNotificationChannel();
         ReminderScheduler.scheduleNext(this);
 
@@ -66,6 +64,7 @@ public final class MainActivity extends Activity {
         progressBar.setMax(100);
         root.addView(progressBar, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, dp(3)));
         setContentView(root);
+        applySystemTheme(false);
 
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
@@ -76,7 +75,7 @@ public final class MainActivity extends Activity {
         webSettings.setAllowFileAccessFromFileURLs(false);
         webSettings.setAllowUniversalAccessFromFileURLs(false);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        webSettings.setUserAgentString(webSettings.getUserAgentString() + " MaliAndroid/8.0 Offline");
+        webSettings.setUserAgentString(webSettings.getUserAgentString() + " MaliAndroid/8.0.1 Offline");
         clearWebCacheAfterUpgrade();
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
@@ -104,6 +103,7 @@ public final class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
+                installThemeSync();
                 sendNotificationStatusToWeb();
             }
 
@@ -127,6 +127,40 @@ public final class MainActivity extends Activity {
             channel.enableVibration(true);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
+    }
+
+    private void installThemeSync() {
+        if (webView == null) return;
+        String script = "(function(){try{" +
+                "if(!document.getElementById('mali-native-theme-fix')){" +
+                "const s=document.createElement('style');s.id='mali-native-theme-fix';" +
+                "s.textContent='.dark .top{background:rgba(7,19,15,.97)!important}.dark .nav{background:rgba(7,19,15,.98)!important}.dark .nav button.active{background:#10271f!important}.dark{color-scheme:dark}';" +
+                "document.head.appendChild(s);}" +
+                "const sync=()=>{const dark=document.body.classList.contains('dark');" +
+                "const meta=document.querySelector('meta[name=theme-color]');if(meta)meta.setAttribute('content',dark?'#07130f':'#f4f7f5');" +
+                "if(window.MaliAndroid&&window.MaliAndroid.setSystemDarkMode)window.MaliAndroid.setSystemDarkMode(dark);};" +
+                "if(!window.__maliThemeObserver){window.__maliThemeObserver=new MutationObserver(sync);window.__maliThemeObserver.observe(document.body,{attributes:true,attributeFilter:['class']});}" +
+                "sync();}catch(e){}})();";
+        webView.evaluateJavascript(script, null);
+    }
+
+    private void applySystemTheme(boolean dark) {
+        int surface = dark ? Color.rgb(7, 19, 15) : Color.rgb(244, 247, 245);
+        getWindow().setStatusBarColor(surface);
+        getWindow().setNavigationBarColor(surface);
+        if (webView != null) webView.setBackgroundColor(surface);
+
+        View decor = getWindow().getDecorView();
+        int flags = decor.getSystemUiVisibility();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (dark) flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            else flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (dark) flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            else flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        decor.setSystemUiVisibility(flags);
     }
 
     private boolean notificationsEnabled() {
@@ -249,6 +283,11 @@ public final class MainActivity extends Activity {
         @JavascriptInterface
         public void openNotificationSettings() {
             runOnUiThread(MainActivity.this::openNotificationSettings);
+        }
+
+        @JavascriptInterface
+        public void setSystemDarkMode(boolean dark) {
+            runOnUiThread(() -> MainActivity.this.applySystemTheme(dark));
         }
 
         @JavascriptInterface
