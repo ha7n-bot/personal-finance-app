@@ -34,7 +34,7 @@ import java.nio.charset.StandardCharsets;
 
 public final class MainActivity extends Activity {
     private static final String APP_URL = "file:///android_asset/index.html";
-    private static final int WEB_CACHE_VERSION = 10;
+    private static final int WEB_CACHE_VERSION = 11;
     private static final String FINANCE_PREFS = "mali_finance_local";
     private static final String FINANCE_DATA_KEY = "finance_state_v1";
     private static final int MAX_BACKUP_BYTES = 2_000_000;
@@ -75,7 +75,7 @@ public final class MainActivity extends Activity {
         webSettings.setAllowFileAccessFromFileURLs(false);
         webSettings.setAllowUniversalAccessFromFileURLs(false);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        webSettings.setUserAgentString(webSettings.getUserAgentString() + " MaliAndroid/8.0.1 Offline");
+        webSettings.setUserAgentString(webSettings.getUserAgentString() + " MaliAndroid/8.1.0 Offline");
         clearWebCacheAfterUpgrade();
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
@@ -104,6 +104,7 @@ public final class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
                 installThemeSync();
+                evaluateAssetScript("enhancements.js");
                 sendNotificationStatusToWeb();
             }
 
@@ -142,6 +143,20 @@ public final class MainActivity extends Activity {
                 "if(!window.__maliThemeObserver){window.__maliThemeObserver=new MutationObserver(sync);window.__maliThemeObserver.observe(document.body,{attributes:true,attributeFilter:['class']});}" +
                 "sync();}catch(e){}})();";
         webView.evaluateJavascript(script, null);
+    }
+
+    private void evaluateAssetScript(String assetName) {
+        if (webView == null) return;
+        try (InputStream input = getAssets().open(assetName);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            String script = output.toString(StandardCharsets.UTF_8.name());
+            webView.evaluateJavascript(script, null);
+        } catch (Exception error) {
+            Toast.makeText(this, "تعذر تحميل تحسينات مالي المحلية", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void applySystemTheme(boolean dark) {
