@@ -10,8 +10,8 @@ android {
         applicationId = "com.ha7n.mali"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "8.0.0"
+        versionCode = 10
+        versionName = "8.0.1"
     }
 
     buildTypes {
