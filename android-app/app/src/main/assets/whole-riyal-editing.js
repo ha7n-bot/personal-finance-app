@@ -65,4 +65,11 @@
     debt.remaining = Math.max(0, whole(debt.remaining) - value);
     save(); toast('تم تحديث المتبقي');
   };
+
+  if (!document.getElementById('mali-v83-script')) {
+    const script = document.createElement('script');
+    script.id = 'mali-v83-script';
+    script.src = 'partial-payments-v83.js';
+    document.head.appendChild(script);
+  }
 })();
