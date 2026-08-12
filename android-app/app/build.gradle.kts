@@ -10,8 +10,8 @@ android {
         applicationId = "com.ha7n.mali"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "8.0.0"
+        versionCode = 11
+        versionName = "8.1.0"
     }
 
     buildTypes {
@@ -32,3 +32,5 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+// مالي 8.1.0: professional offline finance release.
