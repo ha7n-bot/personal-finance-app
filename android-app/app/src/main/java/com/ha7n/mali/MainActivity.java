@@ -34,7 +34,7 @@ import java.nio.charset.StandardCharsets;
 
 public final class MainActivity extends Activity {
     private static final String APP_URL = "file:///android_asset/index.html";
-    private static final int WEB_CACHE_VERSION = 12;
+    private static final int WEB_CACHE_VERSION = 13;
     private static final String FINANCE_PREFS = "mali_finance_local";
     private static final String FINANCE_DATA_KEY = "finance_state_v1";
     private static final int MAX_BACKUP_BYTES = 2_000_000;
@@ -75,7 +75,7 @@ public final class MainActivity extends Activity {
         webSettings.setAllowFileAccessFromFileURLs(false);
         webSettings.setAllowUniversalAccessFromFileURLs(false);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        webSettings.setUserAgentString(webSettings.getUserAgentString() + " MaliAndroid/8.2.0 Offline");
+        webSettings.setUserAgentString(webSettings.getUserAgentString() + " MaliAndroid/8.2.1 Offline");
         clearWebCacheAfterUpgrade();
         webView.addJavascriptInterface(new MaliBridge(), "MaliAndroid");
 
@@ -106,6 +106,7 @@ public final class MainActivity extends Activity {
                 installThemeSync();
                 evaluateAssetScript("enhancements.js");
                 evaluateAssetScript("ux-v82.js");
+                evaluateAssetScript("whole-riyal-editing.js");
                 sendNotificationStatusToWeb();
             }
 
