@@ -82,6 +82,9 @@ interface MaliDao {
     @Query("SELECT * FROM accounts ORDER BY createdAt ASC")
     suspend fun getAccounts(): List<AccountEntity>
 
+    @Query("SELECT * FROM accounts WHERE id = :id LIMIT 1")
+    suspend fun getAccount(id: String): AccountEntity?
+
     @Query("SELECT * FROM categories ORDER BY kind DESC, sortOrder ASC")
     suspend fun getCategories(): List<CategoryEntity>
 
@@ -99,6 +102,9 @@ interface MaliDao {
 
     @Query("SELECT COUNT(*) FROM transactions")
     suspend fun transactionCount(): Int
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE accountId = :accountId OR transferAccountId = :accountId")
+    suspend fun transactionCountForAccount(accountId: String): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAccount(account: AccountEntity)
