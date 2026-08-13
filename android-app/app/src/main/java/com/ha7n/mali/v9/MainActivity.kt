@@ -5,8 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ha7n.mali.v9.data.MaliDatabase
 import com.ha7n.mali.v9.data.MaliRepository
@@ -20,7 +20,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val repository = MaliRepository(MaliDatabase.getInstance(applicationContext).maliDao())
+        val database = MaliDatabase.getInstance(applicationContext)
+        val repository = MaliRepository(applicationContext, database.maliDao())
         val factory = MaliViewModelFactory(repository)
 
         setContent {
