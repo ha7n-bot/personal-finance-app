@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">حارس الوقت</string>
+    <string name="accessibility_service_name">حارس الوقت — منع تجاوز الحدود</string>
+    <string name="accessibility_service_description">يراقب التطبيق المفتوح ويمنع الوصول إليه تلقائيًا عند انتهاء الحد اليومي الذي حددته.</string>
+</resources>

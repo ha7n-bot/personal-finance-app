@@ -1,0 +1,47 @@
+name: Build Focus Guard APK
+
+on:
+  push:
+    branches:
+      - focus-guard-android
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+
+      - name: Build debug APK
+        working-directory: focus-guard-app
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: cp focus-guard-app/app/build/outputs/apk/debug/app-debug.apk FocusGuard-v1.0.0.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FocusGuard-v1.0.0-apk
+          path: FocusGuard-v1.0.0.apk
+          if-no-files-found: error
