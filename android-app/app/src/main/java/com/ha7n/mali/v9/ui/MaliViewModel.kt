@@ -3,8 +3,11 @@ package com.ha7n.mali.v9.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.ha7n.mali.v9.data.AppSettings
+import com.ha7n.mali.v9.data.AppSettingsRepository
 import com.ha7n.mali.v9.data.FinanceSnapshot
 import com.ha7n.mali.v9.data.MaliRepository
+import com.ha7n.mali.v9.data.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +18,7 @@ import java.time.LocalDate
 
 data class MaliUiState(
     val snapshot: FinanceSnapshot = emptySnapshot(),
+    val settings: AppSettings = AppSettings(),
     val busy: Boolean = false,
     val message: String? = null,
 )
@@ -33,16 +37,25 @@ private fun emptySnapshot() = FinanceSnapshot(
     monthSpendingByCategory = emptyMap(),
 )
 
-class MaliViewModel(private val repository: MaliRepository) : ViewModel() {
+class MaliViewModel(
+    private val repository: MaliRepository,
+    private val settingsRepository: AppSettingsRepository,
+) : ViewModel() {
     private val busy = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<MaliUiState> = combine(
         repository.observeSnapshot(),
+        settingsRepository.settings,
         busy,
         message,
-    ) { snapshot, isBusy, currentMessage ->
-        MaliUiState(snapshot = snapshot, busy = isBusy, message = currentMessage)
+    ) { snapshot, settings, isBusy, currentMessage ->
+        MaliUiState(
+            snapshot = snapshot,
+            settings = settings,
+            busy = isBusy,
+            message = currentMessage,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -67,6 +80,13 @@ class MaliViewModel(private val repository: MaliRepository) : ViewModel() {
 
     fun clearMessage() {
         message.value = null
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            runCatching { settingsRepository.setThemeMode(mode) }
+                .onFailure { message.value = "تعذر حفظ إعداد المظهر" }
+        }
     }
 
     fun addAccount(name: String, type: String, openingBalance: Long, onDone: () -> Unit = {}) {
@@ -152,11 +172,14 @@ class MaliViewModel(private val repository: MaliRepository) : ViewModel() {
     }
 }
 
-class MaliViewModelFactory(private val repository: MaliRepository) : ViewModelProvider.Factory {
+class MaliViewModelFactory(
+    private val repository: MaliRepository,
+    private val settingsRepository: AppSettingsRepository,
+) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MaliViewModel::class.java)) {
-            return MaliViewModel(repository) as T
+            return MaliViewModel(repository, settingsRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
