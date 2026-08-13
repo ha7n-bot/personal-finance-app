@@ -77,19 +77,23 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "MALI_ALLOW_DEBUG_SIGNING=1" >> "$GITHUB_ENV"
+            echo "MALI_RELEASE_SIGNING_READY=false" >> "$GITHUB_ENV"
             echo "Pull-request APK uses temporary validation signing and will never be published."
             exit 0
           fi
 
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "Permanent release signing secrets are missing. Refusing to publish an APK that cannot update existing permanent-signed installs."
-            exit 1
+            echo "::warning::Permanent Android signing secrets are not configured. Building validation-only APK and blocking release publication."
+            echo "MALI_ALLOW_DEBUG_SIGNING=1" >> "$GITHUB_ENV"
+            echo "MALI_RELEASE_SIGNING_READY=false" >> "$GITHUB_ENV"
+            exit 0
           fi
 
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mali-release.p12"
           chmod 600 "$RUNNER_TEMP/mali-release.p12"
           echo "MALI_SIGNING_STORE_FILE=$RUNNER_TEMP/mali-release.p12" >> "$GITHUB_ENV"
           echo "MALI_SIGNING_STORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "MALI_RELEASE_SIGNING_READY=true" >> "$GITHUB_ENV"
 
       - name: Build signed installable APK
         working-directory: android-app
@@ -105,7 +109,7 @@ jobs:
           CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:upper:]' '[:lower:]')
           echo "Built APK signer: $CERT"
 
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "$MALI_RELEASE_SIGNING_READY" = "true" ]; then
             EXPECTED=$(tr -d '[:space:]' < android-app/signing-cert.sha256)
             if [ "$CERT" != "$EXPECTED" ]; then
               echo "Signing certificate mismatch. Release blocked."
@@ -113,10 +117,12 @@ jobs:
             fi
           fi
 
-      - name: Prepare download file
+      - name: Prepare release download file
+        if: env.MALI_RELEASE_SIGNING_READY == 'true'
         run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v8.4.0.apk
 
-      - name: Keep workflow artifact
+      - name: Keep permanent-signed workflow artifact
+        if: env.MALI_RELEASE_SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Mali-Android-v8.4.0
@@ -124,7 +130,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish direct-download release from main
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.MALI_RELEASE_SIGNING_READY == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
