@@ -69,7 +69,11 @@ class MaliRepository(
     suspend fun exportBackup(): String = MaliBackupCodec.exportJson(dao)
 
     suspend fun importBackup(raw: String) {
-        MaliBackupCodec.importJson(dao, raw)
+        when {
+            MaliBackupCodec.isNativeV9(raw) -> MaliBackupCodec.importJson(dao, raw)
+            isSupportedLegacyBackup(raw) -> LegacyV8Migrator(context, dao).importLegacyBackup(raw)
+            else -> error("ملف النسخة الاحتياطية غير مدعوم")
+        }
     }
 
     suspend fun addAccount(name: String, type: String, openingBalance: Long) {
