@@ -78,12 +78,32 @@ class MaliRepository(
         dao.upsertAccount(
             AccountEntity(
                 id = UUID.randomUUID().toString(),
-                name = name.trim(),
+                name = name.trim().take(60),
                 type = type,
                 openingBalance = openingBalance,
                 createdAt = System.currentTimeMillis(),
             )
         )
+    }
+
+    suspend fun updateAccount(id: String, name: String, type: String, openingBalance: Long) {
+        require(name.isNotBlank())
+        require(openingBalance >= 0L)
+        val existing = requireNotNull(dao.getAccount(id)) { "الحساب غير موجود" }
+        dao.updateAccount(
+            existing.copy(
+                name = name.trim().take(60),
+                type = type,
+                openingBalance = openingBalance,
+            )
+        )
+    }
+
+    suspend fun deleteAccount(id: String) {
+        require(dao.transactionCountForAccount(id) == 0) {
+            "لا يمكن حذف حساب لديه حركات. عدّل الحركات أو احتفظ بالحساب حتى لا تضيع السجلات."
+        }
+        dao.deleteAccount(id)
     }
 
     suspend fun saveTransaction(
@@ -109,14 +129,14 @@ class MaliRepository(
         dao.upsertTransaction(
             TransactionEntity(
                 id = UUID.randomUUID().toString(),
-                title = title.trim().ifBlank { "حركة مالية" },
+                title = title.trim().ifBlank { "حركة مالية" }.take(80),
                 amount = amount,
                 kind = kind,
                 accountId = accountId,
                 categoryId = if (kind == KIND_TRANSFER) null else categoryId,
                 transferAccountId = if (kind == KIND_TRANSFER) transferAccountId else null,
                 dateEpochDay = dateEpochDay,
-                note = note.trim(),
+                note = note.trim().take(200),
                 createdAt = System.currentTimeMillis(),
             )
         )
@@ -140,7 +160,7 @@ class MaliRepository(
     }
 
     companion object {
-        private val defaultCategories = listOf(
+        internal val defaultCategories = listOf(
             CategoryEntity("income-salary", "راتب", KIND_INCOME, "salary", 0xFF1E8E6EL, 10),
             CategoryEntity("income-work", "عمل إضافي", KIND_INCOME, "work", 0xFF3B82F6L, 20),
             CategoryEntity("income-other", "دخل آخر", KIND_INCOME, "income", 0xFF64748BL, 30),
