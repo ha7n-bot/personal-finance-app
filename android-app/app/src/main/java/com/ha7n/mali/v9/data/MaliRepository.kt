@@ -1,5 +1,6 @@
 package com.ha7n.mali.v9.data
 
+import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.LocalDate
@@ -37,7 +38,10 @@ data class FinanceSnapshot(
     val monthSpendingByCategory: Map<String, Long>,
 )
 
-class MaliRepository(private val dao: MaliDao) {
+class MaliRepository(
+    private val context: Context,
+    private val dao: MaliDao,
+) {
     val accounts: Flow<List<AccountEntity>> = dao.observeAccounts()
     val categories: Flow<List<CategoryEntity>> = dao.observeCategories()
     val transactions: Flow<List<TransactionEntity>> = dao.observeTransactions()
@@ -52,10 +56,21 @@ class MaliRepository(private val dao: MaliDao) {
         buildSnapshot(accounts, categories, transactions, plans)
     }
 
+    suspend fun initialize(): LegacyMigrationResult {
+        ensureDefaultCategories()
+        return LegacyV8Migrator(context, dao).migrateIfNeeded()
+    }
+
     suspend fun ensureDefaultCategories() {
         if (dao.categoryCount() == 0) {
             dao.insertCategories(defaultCategories)
         }
+    }
+
+    suspend fun exportBackup(): String = MaliBackupCodec.exportJson(dao)
+
+    suspend fun importBackup(raw: String) {
+        MaliBackupCodec.importJson(dao, raw)
     }
 
     suspend fun addAccount(name: String, type: String, openingBalance: Long) {
