@@ -8,7 +8,7 @@ on:
       - "android-app/**"
       - ".github/workflows/android-apk.yml"
   push:
-    branches: [main, agent/android-offline-v8]
+    branches: [main]
     paths:
       - "android-app/**"
       - ".github/workflows/android-apk.yml"
@@ -70,36 +70,75 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Keep a stable signing key for future updates
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: mali-android-signing-v2
+      - name: Prepare signing credentials
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MALI_SIGNING_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.MALI_SIGNING_PASSWORD }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "MALI_ALLOW_DEBUG_SIGNING=1" >> "$GITHUB_ENV"
+            echo "MALI_RELEASE_SIGNING_READY=false" >> "$GITHUB_ENV"
+            echo "Pull-request APK uses temporary validation signing and will never be published."
+            exit 0
+          fi
+
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::warning::Permanent Android signing secrets are not configured. Building validation-only APK and blocking release publication."
+            echo "MALI_ALLOW_DEBUG_SIGNING=1" >> "$GITHUB_ENV"
+            echo "MALI_RELEASE_SIGNING_READY=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mali-release.p12"
+          chmod 600 "$RUNNER_TEMP/mali-release.p12"
+          echo "MALI_SIGNING_STORE_FILE=$RUNNER_TEMP/mali-release.p12" >> "$GITHUB_ENV"
+          echo "MALI_SIGNING_STORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "MALI_RELEASE_SIGNING_READY=true" >> "$GITHUB_ENV"
 
       - name: Build signed installable APK
         working-directory: android-app
         run: gradle --no-daemon :app:assembleRelease
 
-      - name: Prepare download file
-        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v8.3.0.apk
+      - name: Verify signing certificate continuity
+        run: |
+          APK="android-app/app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          if [ ! -x "$APKSIGNER" ]; then
+            sdkmanager "build-tools;35.0.0"
+          fi
+          CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:upper:]' '[:lower:]')
+          echo "Built APK signer: $CERT"
 
-      - name: Keep workflow artifact
+          if [ "$MALI_RELEASE_SIGNING_READY" = "true" ]; then
+            EXPECTED=$(tr -d '[:space:]' < android-app/signing-cert.sha256)
+            if [ "$CERT" != "$EXPECTED" ]; then
+              echo "Signing certificate mismatch. Release blocked."
+              exit 1
+            fi
+          fi
+
+      - name: Prepare release download file
+        if: env.MALI_RELEASE_SIGNING_READY == 'true'
+        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v8.4.0.apk
+
+      - name: Keep permanent-signed workflow artifact
+        if: env.MALI_RELEASE_SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android-v8.3.0
-          path: Mali-Android-v8.3.0.apk
+          name: Mali-Android-v8.4.0
+          path: Mali-Android-v8.4.0.apk
           if-no-files-found: error
 
       - name: Publish direct-download release from main
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.MALI_RELEASE_SIGNING_READY == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v8.3.0 >/dev/null 2>&1; then
-            gh release upload android-v8.3.0 Mali-Android-v8.3.0.apk --clobber
+          if gh release view android-v8.4.0 >/dev/null 2>&1; then
+            gh release upload android-v8.4.0 Mali-Android-v8.4.0.apk --clobber
           else
-            gh release create android-v8.3.0 Mali-Android-v8.3.0.apk \
+            gh release create android-v8.4.0 Mali-Android-v8.4.0.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي لأندرويد — الإصدار 8.3.0" \
-              --notes "تطوير الالتزامات الشهرية: تسجيل دفعات جزئية متعددة لنفس الشهر مثل البنزين، اختيار تاريخ سابق للدفعة، خصم كل دفعة فعليًا من الحساب، سجل دفعات داخل كل التزام، حساب المدفوع والمتبقي والتجاوز تلقائيًا، ملخص شهري أبسط، مع الحفاظ على الريال الكامل والحفظ المحلي والنسخ الاحتياطي والعمل Offline."
+              --title "مالي لأندرويد — الإصدار 8.4.0" \
+              --notes "إصدار تأسيسي بتوقيع Android دائم ومحمي لمنع تكرار مشكلة التطبيق ليس مثبتًا في التحديثات القادمة. يحتفظ بجميع مزايا 8.3: الدفعات الجزئية للالتزامات، الريال الكامل، الحفظ المحلي، النسخ الاحتياطي والعمل Offline. بعد الانتقال مرة واحدة إلى هذا التوقيع، يجب أن تُثبت الإصدارات اللاحقة كتحديث مباشر فوق التطبيق مع بقاء البيانات."
           fi
