@@ -86,7 +86,28 @@ jobs:
 
       - name: Run Android unit tests
         working-directory: android-app
-        run: gradle --no-daemon :app:testReleaseUnitTest
+        shell: bash
+        run: |
+          set +e
+          gradle --no-daemon --console=plain :app:testReleaseUnitTest 2>&1 | tee "$RUNNER_TEMP/v9-gradle-test.log"
+          STATUS=${PIPESTATUS[0]}
+          if [ "$STATUS" -ne 0 ]; then
+            {
+              echo "=== Mali v9 Gradle diagnostic ==="
+              grep -E -i '(^e: |error:|FAILURE:|What went wrong|Execution failed|Compilation error|Unresolved reference|Cannot infer|Type mismatch|failed)' "$RUNNER_TEMP/v9-gradle-test.log" | tail -n 250 || true
+            } > "$GITHUB_WORKSPACE/v9-gradle-diagnostic.txt"
+            cat "$GITHUB_WORKSPACE/v9-gradle-diagnostic.txt"
+          fi
+          exit "$STATUS"
+
+      - name: Upload Gradle diagnostic on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-gradle-diagnostic
+          path: v9-gradle-diagnostic.txt
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Build signed installable APK
         working-directory: android-app
