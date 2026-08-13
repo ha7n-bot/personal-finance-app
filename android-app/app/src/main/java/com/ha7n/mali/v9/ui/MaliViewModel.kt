@@ -51,7 +51,17 @@ class MaliViewModel(private val repository: MaliRepository) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            repository.ensureDefaultCategories()
+            busy.value = true
+            runCatching { repository.initialize() }
+                .onSuccess { migration ->
+                    if (migration.migrated) {
+                        message.value = "تم نقل ${migration.accounts} حساب و${migration.transactions} حركة من النسخة السابقة"
+                    }
+                }
+                .onFailure {
+                    message.value = "تعذر نقل بيانات النسخة السابقة تلقائيًا. بياناتك القديمة لم تُحذف ويمكن استيراد نسخة JSON يدويًا."
+                }
+            busy.value = false
         }
     }
 
@@ -100,6 +110,26 @@ class MaliViewModel(private val repository: MaliRepository) : ViewModel() {
         launchAction(if (amount > 0) "تم تحديث الخطة" else "تم إلغاء الخطة", onDone) {
             repository.setMonthlyPlan(categoryId, amount)
         }
+    }
+
+    fun createBackup(onReady: (String) -> Unit) {
+        viewModelScope.launch {
+            busy.value = true
+            runCatching { repository.exportBackup() }
+                .onSuccess(onReady)
+                .onFailure { message.value = it.message ?: "تعذر تجهيز النسخة الاحتياطية" }
+            busy.value = false
+        }
+    }
+
+    fun restoreBackup(raw: String, onDone: () -> Unit = {}) {
+        launchAction("تم استيراد النسخة الاحتياطية", onDone) {
+            repository.importBackup(raw)
+        }
+    }
+
+    fun reportMessage(value: String) {
+        message.value = value
     }
 
     private fun launchAction(
