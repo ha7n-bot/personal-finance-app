@@ -1,0 +1,36 @@
+name: Signing Diagnostic
+
+on:
+  push:
+    branches: [agent/signing-diagnostic]
+    paths:
+      - ".github/workflows/signing-diagnostic.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  compare-signatures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - name: Install apksigner
+        run: sdkmanager "build-tools;35.0.0"
+      - name: Download released APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/apks/v80 /tmp/apks/v81 /tmp/apks/v821 /tmp/apks/v83
+          gh release download android-v8.0.0 -p '*.apk' -D /tmp/apks/v80
+          gh release download android-v8.1.0 -p '*.apk' -D /tmp/apks/v81
+          gh release download android-v8.2.1 -p '*.apk' -D /tmp/apks/v821
+          gh release download android-v8.3.0 -p '*.apk' -D /tmp/apks/v83
+      - name: Print signing certificate SHA-256
+        run: |
+          A="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          for d in v80 v81 v821 v83; do
+            f=$(find /tmp/apks/$d -name '*.apk' -type f | head -1)
+            echo "===== $d : $f ====="
+            "$A" verify --print-certs "$f" | grep -E 'Signer #1 certificate SHA-256 digest|Signer #1 certificate DN'
+          done
