@@ -20,6 +20,7 @@ data class MaliUiState(
     val snapshot: FinanceSnapshot = emptySnapshot(),
     val settings: AppSettings = AppSettings(),
     val busy: Boolean = false,
+    val initialized: Boolean = false,
     val message: String? = null,
 )
 
@@ -42,18 +43,21 @@ class MaliViewModel(
     private val settingsRepository: AppSettingsRepository,
 ) : ViewModel() {
     private val busy = MutableStateFlow(false)
+    private val initialized = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<MaliUiState> = combine(
         repository.observeSnapshot(),
         settingsRepository.settings,
         busy,
+        initialized,
         message,
-    ) { snapshot, settings, isBusy, currentMessage ->
+    ) { snapshot, settings, isBusy, isInitialized, currentMessage ->
         MaliUiState(
             snapshot = snapshot,
             settings = settings,
             busy = isBusy,
+            initialized = isInitialized,
             message = currentMessage,
         )
     }.stateIn(
@@ -74,6 +78,7 @@ class MaliViewModel(
                 .onFailure {
                     message.value = "تعذر نقل بيانات النسخة السابقة تلقائيًا. بياناتك القديمة لم تُحذف ويمكن استيراد نسخة JSON يدويًا."
                 }
+            initialized.value = true
             busy.value = false
         }
     }
