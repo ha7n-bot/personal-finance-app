@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.ha7n.mali.v9.data.ThemeMode
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF0B6B5A),
@@ -47,11 +48,17 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun MaliTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit,
 ) {
+    val isDark = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = if (isDark) DarkColors else LightColors,
         typography = MaterialTheme.typography,
         content = content,
     )
