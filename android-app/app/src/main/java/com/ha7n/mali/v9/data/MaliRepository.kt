@@ -3,7 +3,6 @@ package com.ha7n.mali.v9.data
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import java.time.LocalDate
 import java.util.UUID
 
 const val KIND_INCOME = "income"
@@ -53,7 +52,7 @@ class MaliRepository(
         transactions,
         plans,
     ) { accounts, categories, transactions, plans ->
-        buildSnapshot(accounts, categories, transactions, plans)
+        FinanceCalculator.snapshot(accounts, categories, transactions, plans)
     }
 
     suspend fun initialize(): LegacyMigrationResult {
@@ -137,69 +136,6 @@ class MaliRepository(
                 isActive = true,
                 updatedAt = System.currentTimeMillis(),
             )
-        )
-    }
-
-    private fun buildSnapshot(
-        accounts: List<AccountEntity>,
-        categories: List<CategoryEntity>,
-        transactions: List<TransactionEntity>,
-        plans: List<MonthlyPlanEntity>,
-    ): FinanceSnapshot {
-        val today = LocalDate.now()
-        val monthStart = today.withDayOfMonth(1).toEpochDay()
-        val nextMonthStart = today.plusMonths(1).withDayOfMonth(1).toEpochDay()
-        val monthTransactions = transactions.filter { it.dateEpochDay in monthStart until nextMonthStart }
-
-        val balances = accounts.associate { it.id to it.openingBalance }.toMutableMap()
-        transactions.forEach { transaction ->
-            when (transaction.kind) {
-                KIND_INCOME -> balances[transaction.accountId] = (balances[transaction.accountId] ?: 0L) + transaction.amount
-                KIND_EXPENSE -> balances[transaction.accountId] = (balances[transaction.accountId] ?: 0L) - transaction.amount
-                KIND_TRANSFER -> {
-                    balances[transaction.accountId] = (balances[transaction.accountId] ?: 0L) - transaction.amount
-                    val target = transaction.transferAccountId
-                    if (!target.isNullOrBlank()) {
-                        balances[target] = (balances[target] ?: 0L) + transaction.amount
-                    }
-                }
-            }
-        }
-
-        val accountBalances = accounts.map { account ->
-            AccountBalance(account = account, balance = balances[account.id] ?: account.openingBalance)
-        }
-
-        val monthIncome = monthTransactions.filter { it.kind == KIND_INCOME }.sumOf { it.amount }
-        val monthExpense = monthTransactions.filter { it.kind == KIND_EXPENSE }.sumOf { it.amount }
-        val spendingByCategory = monthTransactions
-            .asSequence()
-            .filter { it.kind == KIND_EXPENSE && !it.categoryId.isNullOrBlank() }
-            .groupBy { it.categoryId!! }
-            .mapValues { (_, items) -> items.sumOf { it.amount } }
-
-        val categoryById = categories.associateBy { it.id }
-        val planProgress = plans.mapNotNull { plan ->
-            val category = categoryById[plan.categoryId] ?: return@mapNotNull null
-            PlanProgress(
-                category = category,
-                planned = plan.amount,
-                spent = spendingByCategory[plan.categoryId] ?: 0L,
-            )
-        }.sortedWith(compareByDescending<PlanProgress> { it.progress }.thenBy { it.category.sortOrder })
-
-        return FinanceSnapshot(
-            accounts = accounts,
-            accountBalances = accountBalances,
-            categories = categories,
-            transactions = transactions,
-            plans = plans,
-            totalBalance = accountBalances.sumOf { it.balance },
-            monthIncome = monthIncome,
-            monthExpense = monthExpense,
-            monthNet = monthIncome - monthExpense,
-            planProgress = planProgress,
-            monthSpendingByCategory = spendingByCategory,
         )
     }
 
