@@ -100,6 +100,24 @@ class MaliViewModel(
         }
     }
 
+    fun updateAccount(
+        id: String,
+        name: String,
+        type: String,
+        openingBalance: Long,
+        onDone: () -> Unit = {},
+    ) {
+        launchAction("تم تحديث الحساب", onDone) {
+            repository.updateAccount(id, name, type, openingBalance)
+        }
+    }
+
+    fun deleteAccount(id: String, onDone: () -> Unit = {}) {
+        launchAction("تم حذف الحساب", onDone) {
+            repository.deleteAccount(id)
+        }
+    }
+
     fun addTransaction(
         kind: String,
         amount: Long,
