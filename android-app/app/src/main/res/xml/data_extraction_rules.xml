@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
+        <include domain="database" path="mali-v9.db" />
+        <include domain="database" path="mali-v9.db-wal" />
+        <include domain="database" path="mali-v9.db-shm" />
+        <include domain="file" path="datastore/" />
         <include domain="sharedpref" path="mali_finance_local.xml" />
-        <include domain="sharedpref" path="mali_reminder_preferences.xml" />
+        <include domain="sharedpref" path="mali_v9_migration.xml" />
     </cloud-backup>
     <device-transfer>
+        <include domain="database" path="mali-v9.db" />
+        <include domain="database" path="mali-v9.db-wal" />
+        <include domain="database" path="mali-v9.db-shm" />
+        <include domain="file" path="datastore/" />
         <include domain="sharedpref" path="mali_finance_local.xml" />
-        <include domain="sharedpref" path="mali_reminder_preferences.xml" />
+        <include domain="sharedpref" path="mali_v9_migration.xml" />
     </device-transfer>
 </data-extraction-rules>
