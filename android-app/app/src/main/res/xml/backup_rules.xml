@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
+    <!-- Native v9 financial database. Room also creates WAL/SHM files as needed. -->
+    <include domain="database" path="mali-v9.db" />
+    <include domain="database" path="mali-v9.db-wal" />
+    <include domain="database" path="mali-v9.db-shm" />
+
+    <!-- DataStore preferences live under files/datastore. -->
+    <include domain="file" path="datastore/" />
+
+    <!-- Keep the legacy local state available for one-time migration and recovery. -->
     <include domain="sharedpref" path="mali_finance_local.xml" />
-    <include domain="sharedpref" path="mali_reminder_preferences.xml" />
+    <include domain="sharedpref" path="mali_v9_migration.xml" />
 </full-backup-content>
