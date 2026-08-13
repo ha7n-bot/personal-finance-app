@@ -11,6 +11,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -78,8 +79,26 @@ interface MaliDao {
     @Query("SELECT * FROM monthly_plans WHERE isActive = 1")
     fun observePlans(): Flow<List<MonthlyPlanEntity>>
 
+    @Query("SELECT * FROM accounts ORDER BY createdAt ASC")
+    suspend fun getAccounts(): List<AccountEntity>
+
+    @Query("SELECT * FROM categories ORDER BY kind DESC, sortOrder ASC")
+    suspend fun getCategories(): List<CategoryEntity>
+
+    @Query("SELECT * FROM transactions ORDER BY dateEpochDay DESC, createdAt DESC")
+    suspend fun getTransactions(): List<TransactionEntity>
+
+    @Query("SELECT * FROM monthly_plans WHERE isActive = 1")
+    suspend fun getPlans(): List<MonthlyPlanEntity>
+
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun categoryCount(): Int
+
+    @Query("SELECT COUNT(*) FROM accounts")
+    suspend fun accountCount(): Int
+
+    @Query("SELECT COUNT(*) FROM transactions")
+    suspend fun transactionCount(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAccount(account: AccountEntity)
@@ -100,7 +119,13 @@ interface MaliDao {
     suspend fun insertCategories(categories: List<CategoryEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCategories(categories: List<CategoryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTransaction(transaction: TransactionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertTransactions(transactions: List<TransactionEntity>)
 
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteTransaction(id: String)
@@ -108,8 +133,40 @@ interface MaliDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPlan(plan: MonthlyPlanEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPlans(plans: List<MonthlyPlanEntity>)
+
     @Query("DELETE FROM monthly_plans WHERE categoryId = :categoryId")
     suspend fun deletePlan(categoryId: String)
+
+    @Query("DELETE FROM transactions")
+    suspend fun clearTransactions()
+
+    @Query("DELETE FROM monthly_plans")
+    suspend fun clearPlans()
+
+    @Query("DELETE FROM categories")
+    suspend fun clearCategories()
+
+    @Query("DELETE FROM accounts")
+    suspend fun clearAccounts()
+
+    @Transaction
+    suspend fun replaceAll(
+        accounts: List<AccountEntity>,
+        categories: List<CategoryEntity>,
+        transactions: List<TransactionEntity>,
+        plans: List<MonthlyPlanEntity>,
+    ) {
+        clearTransactions()
+        clearPlans()
+        clearCategories()
+        clearAccounts()
+        upsertAccounts(accounts)
+        upsertCategories(categories)
+        upsertTransactions(transactions)
+        upsertPlans(plans)
+    }
 }
 
 @Database(
