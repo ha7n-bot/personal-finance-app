@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ha7n.mali.v9.data.KIND_EXPENSE
+import com.ha7n.mali.v9.data.KIND_INCOME
 
 private enum class MainTab(val label: String, val icon: ImageVector) {
     HOME("الرئيسية", Icons.Rounded.Home),
@@ -145,7 +146,8 @@ fun MaliApp(viewModel: MaliViewModel) {
                 snapshot = snapshot,
                 modifier = contentModifier,
                 onAddAccount = { showAddAccount = true },
-                onAddTransaction = { transactionKind = KIND_EXPENSE },
+                onAddExpense = { transactionKind = KIND_EXPENSE },
+                onAddIncome = { transactionKind = KIND_INCOME },
                 onOpenPlan = { selectedTab = MainTab.PLAN },
             )
 
