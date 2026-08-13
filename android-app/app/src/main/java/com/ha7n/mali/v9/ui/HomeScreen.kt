@@ -46,7 +46,8 @@ internal fun HomeScreen(
     snapshot: FinanceSnapshot,
     modifier: Modifier,
     onAddAccount: () -> Unit,
-    onAddTransaction: () -> Unit,
+    onAddExpense: () -> Unit,
+    onAddIncome: () -> Unit,
     onOpenPlan: () -> Unit,
 ) {
     LazyColumn(
@@ -63,14 +64,14 @@ internal fun HomeScreen(
                     icon = Icons.Rounded.ArrowDownward,
                     tint = ExpenseColor,
                     modifier = Modifier.weight(1f),
-                    onClick = onAddTransaction,
+                    onClick = onAddExpense,
                 )
                 QuickAction(
                     title = "دخل",
                     icon = Icons.Rounded.ArrowUpward,
                     tint = IncomeColor,
                     modifier = Modifier.weight(1f),
-                    onClick = onAddTransaction,
+                    onClick = onAddIncome,
                 )
                 QuickAction(
                     title = "حساب",
