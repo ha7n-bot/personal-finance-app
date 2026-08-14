@@ -21,8 +21,8 @@ android {
         applicationId = "com.ha7n.mali"
         minSdk = 24
         targetSdk = 35
-        versionCode = 15
-        versionName = "8.4.0"
+        versionCode = 16
+        versionName = "8.5.0"
     }
 
     signingConfigs {
@@ -59,4 +59,4 @@ android {
     }
 }
 
-// مالي 8.4.0: permanent release-signing foundation. Published builds may never use ephemeral debug keys.
+// مالي 8.5.0: stable v8 feature set with a redesigned v9-inspired interface layer.
