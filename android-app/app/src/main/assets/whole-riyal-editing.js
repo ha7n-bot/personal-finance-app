@@ -79,4 +79,11 @@
     script.src = 'hybrid-ui-v85.js';
     document.head.appendChild(script);
   }
+
+  if (!document.getElementById('mali-v86-next-month-script')) {
+    const script = document.createElement('script');
+    script.id = 'mali-v86-next-month-script';
+    script.src = 'next-month-v86.js';
+    document.head.appendChild(script);
+  }
 })();
