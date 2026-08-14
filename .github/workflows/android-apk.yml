@@ -93,25 +93,52 @@ jobs:
           STATUS=${PIPESTATUS[0]}
           if [ "$STATUS" -ne 0 ]; then
             {
-              echo "=== Mali v9 Gradle diagnostic ==="
+              echo "=== Mali v9 Gradle test diagnostic ==="
               grep -E -i '(^e: |error:|FAILURE:|What went wrong|Execution failed|Compilation error|Unresolved reference|Cannot infer|Type mismatch|failed)' "$RUNNER_TEMP/v9-gradle-test.log" | tail -n 250 || true
             } > "$GITHUB_WORKSPACE/v9-gradle-diagnostic.txt"
+            cp "$RUNNER_TEMP/v9-gradle-test.log" "$GITHUB_WORKSPACE/v9-gradle-test-full.log"
             cat "$GITHUB_WORKSPACE/v9-gradle-diagnostic.txt"
           fi
           exit "$STATUS"
 
-      - name: Upload Gradle diagnostic on failure
+      - name: Upload Gradle test diagnostic on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: v9-gradle-diagnostic
-          path: v9-gradle-diagnostic.txt
+          name: v9-gradle-test-diagnostic
+          path: |
+            v9-gradle-diagnostic.txt
+            v9-gradle-test-full.log
           if-no-files-found: ignore
           retention-days: 3
 
       - name: Build signed installable APK
         working-directory: android-app
-        run: gradle --no-daemon :app:assembleRelease
+        shell: bash
+        run: |
+          set +e
+          gradle --no-daemon --console=plain --stacktrace :app:assembleRelease 2>&1 | tee "$RUNNER_TEMP/v9-assemble.log"
+          STATUS=${PIPESTATUS[0]}
+          if [ "$STATUS" -ne 0 ]; then
+            cp "$RUNNER_TEMP/v9-assemble.log" "$GITHUB_WORKSPACE/v9-assemble-full.log"
+            {
+              echo "=== Mali v9 release assemble diagnostic ==="
+              grep -E -i '(^e: |error:|FAILURE:|What went wrong|Execution failed|Compilation error|Unresolved reference|Cannot infer|Type mismatch|Duplicate|AAPT|Manifest merger|resource|failed)' "$RUNNER_TEMP/v9-assemble.log" | tail -n 400 || true
+            } > "$GITHUB_WORKSPACE/v9-assemble-diagnostic.txt"
+            cat "$GITHUB_WORKSPACE/v9-assemble-diagnostic.txt"
+          fi
+          exit "$STATUS"
+
+      - name: Upload release assemble diagnostic on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-assemble-diagnostic
+          path: |
+            v9-assemble-diagnostic.txt
+            v9-assemble-full.log
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Verify signing certificate continuity
         run: |
