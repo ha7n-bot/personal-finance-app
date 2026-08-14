@@ -21,8 +21,8 @@ android {
         applicationId = "com.ha7n.mali"
         minSdk = 24
         targetSdk = 35
-        versionCode = 16
-        versionName = "8.5.0"
+        versionCode = 17
+        versionName = "8.6.0"
     }
 
     signingConfigs {
@@ -59,4 +59,4 @@ android {
     }
 }
 
-// مالي 8.5.0: stable v8 feature set with a redesigned v9-inspired interface layer.
+// مالي 8.6.0: next-month planning layer on top of the stable v8.5 feature set.
