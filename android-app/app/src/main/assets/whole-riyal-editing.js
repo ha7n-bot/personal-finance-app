@@ -72,4 +72,11 @@
     script.src = 'partial-payments-v83.js';
     document.head.appendChild(script);
   }
+
+  if (!document.getElementById('mali-v85-hybrid-script')) {
+    const script = document.createElement('script');
+    script.id = 'mali-v85-hybrid-script';
+    script.src = 'hybrid-ui-v85.js';
+    document.head.appendChild(script);
+  }
 })();
