@@ -41,7 +41,7 @@ jobs:
           grep -q 'Room.databaseBuilder' android-app/app/src/main/java/com/ha7n/mali/v9/data/MaliDatabase.kt
           grep -q 'data class MonthlyPlanEntity' android-app/app/src/main/java/com/ha7n/mali/v9/data/MaliDatabase.kt
           grep -q 'KIND_TRANSFER' android-app/app/src/main/java/com/ha7n/mali/v9/data/MaliRepository.kt
-          grep -q 'versionName = "9.0.0-alpha01"' android-app/app/build.gradle.kts
+          grep -q 'versionName = "9.0.0-alpha02"' android-app/app/build.gradle.kts
           if grep -R "WebView" android-app/app/src/main/java/com/ha7n/mali/v9; then
             echo "v9 native code must not use WebView"
             exit 1
@@ -69,7 +69,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "MALI_ALLOW_DEBUG_SIGNING=1" >> "$GITHUB_ENV"
             echo "MALI_RELEASE_SIGNING_READY=false" >> "$GITHUB_ENV"
-            echo "Pull-request APK uses temporary validation signing and will never be published."
+            echo "Pull-request release validation uses temporary signing and will never be published."
             exit 0
           fi
 
@@ -112,7 +112,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
-      - name: Build signed installable APK
+      - name: Build release-validation APK
         working-directory: android-app
         shell: bash
         run: |
@@ -140,7 +140,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+      - name: Build side-by-side preview APK
+        if: github.event_name == 'pull_request'
+        working-directory: android-app
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Upload side-by-side preview APK
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mali-v9-Preview-alpha02
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Verify signing certificate continuity
+        if: env.MALI_RELEASE_SIGNING_READY == 'true'
         run: |
           APK="android-app/app/build/outputs/apk/release/app-release.apk"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
@@ -149,13 +164,10 @@ jobs:
           fi
           CERT=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:upper:]' '[:lower:]')
           echo "Built APK signer: $CERT"
-
-          if [ "$MALI_RELEASE_SIGNING_READY" = "true" ]; then
-            EXPECTED=$(tr -d '[:space:]' < android-app/signing-cert.sha256)
-            if [ "$CERT" != "$EXPECTED" ]; then
-              echo "Signing certificate mismatch. Release blocked."
-              exit 1
-            fi
+          EXPECTED=$(tr -d '[:space:]' < android-app/signing-cert.sha256)
+          if [ "$CERT" != "$EXPECTED" ]; then
+            echo "Signing certificate mismatch. Release blocked."
+            exit 1
           fi
 
       - name: Prepare release download file
