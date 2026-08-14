@@ -40,8 +40,10 @@ jobs:
           grep -q 'evaluateAssetScript("ux-v82.js")' android-app/app/src/main/java/com/ha7n/mali/MainActivity.java
           grep -q 'evaluateAssetScript("whole-riyal-editing.js")' android-app/app/src/main/java/com/ha7n/mali/MainActivity.java
           grep -q 'partial-payments-v83.js' android-app/app/src/main/assets/whole-riyal-editing.js
+          grep -q 'hybrid-ui-v85.js' android-app/app/src/main/assets/whole-riyal-editing.js
           grep -q 'state.planPayments' android-app/app/src/main/assets/partial-payments-v83.js
           grep -q 'mali-offline-v8' android-app/app/src/main/assets/index.html
+          grep -q 'versionName = "8.5.0"' android-app/app/build.gradle.kts
           python3 - <<'PY'
           import re, pathlib
           text = pathlib.Path('android-app/app/src/main/assets/index.html').read_text()
@@ -55,6 +57,7 @@ jobs:
           node --check android-app/app/src/main/assets/ux-v82.js
           node --check android-app/app/src/main/assets/whole-riyal-editing.js
           node --check android-app/app/src/main/assets/partial-payments-v83.js
+          node --check android-app/app/src/main/assets/hybrid-ui-v85.js
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -119,14 +122,14 @@ jobs:
 
       - name: Prepare release download file
         if: env.MALI_RELEASE_SIGNING_READY == 'true'
-        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v8.4.0.apk
+        run: cp android-app/app/build/outputs/apk/release/app-release.apk Mali-Android-v8.5.0.apk
 
       - name: Keep permanent-signed workflow artifact
         if: env.MALI_RELEASE_SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Mali-Android-v8.4.0
-          path: Mali-Android-v8.4.0.apk
+          name: Mali-Android-v8.5.0
+          path: Mali-Android-v8.5.0.apk
           if-no-files-found: error
 
       - name: Publish direct-download release from main
@@ -134,11 +137,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v8.4.0 >/dev/null 2>&1; then
-            gh release upload android-v8.4.0 Mali-Android-v8.4.0.apk --clobber
+          if gh release view android-v8.5.0 >/dev/null 2>&1; then
+            gh release upload android-v8.5.0 Mali-Android-v8.5.0.apk --clobber
           else
-            gh release create android-v8.4.0 Mali-Android-v8.4.0.apk \
+            gh release create android-v8.5.0 Mali-Android-v8.5.0.apk \
               --target "$GITHUB_SHA" \
-              --title "مالي لأندرويد — الإصدار 8.4.0" \
-              --notes "إصدار تأسيسي بتوقيع Android دائم ومحمي لمنع تكرار مشكلة التطبيق ليس مثبتًا في التحديثات القادمة. يحتفظ بجميع مزايا 8.3: الدفعات الجزئية للالتزامات، الريال الكامل، الحفظ المحلي، النسخ الاحتياطي والعمل Offline. بعد الانتقال مرة واحدة إلى هذا التوقيع، يجب أن تُثبت الإصدارات اللاحقة كتحديث مباشر فوق التطبيق مع بقاء البيانات."
+              --title "مالي لأندرويد — الإصدار 8.5.0" \
+              --notes "نسخة هجينة تحافظ على جميع وظائف مالي 8.x وبياناته مع إعادة تصميم الواجهة والرئيسية بأسلوب أوضح مستوحى من تجربة v9: بطاقات أنظف، ألوان متوازنة، اختصارات دخل ومصروف مباشرة، وملخص التزامات الشهر في الرئيسية. يحتفظ بالعمل والمشاريع والدفعات الجزئية والأقساط والديون والأهداف والتقارير والإعدادات والنسخ الاحتياطي والعمل Offline والتوقيع الدائم."
           fi
