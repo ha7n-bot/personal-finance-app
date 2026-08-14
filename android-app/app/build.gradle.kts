@@ -25,7 +25,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 16
-        versionName = "9.0.0-alpha01"
+        versionName = "9.0.0-alpha02"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -84,6 +84,16 @@ android {
             "META-INF/NOTICE*"
         )
     }
+
+    // AGP 8.7 can crash inside Lifecycle's NullSafeMutableLiveData detector when
+    // analyzing Kotlin K2 sources even though Mali v9 does not use LiveData.
+    // Android's AGP guidance explicitly recommends disabling a crashing third-party
+    // lint detector until the corresponding library/tooling fix is available.
+    lint {
+        disable += "NullSafeMutableLiveData"
+        abortOnError = true
+        checkReleaseBuilds = true
+    }
 }
 
 ksp {
@@ -91,9 +101,6 @@ ksp {
 }
 
 dependencies {
-    // Keep the v9 alpha on the Android 15 / compileSdk 35 toolchain used by the stable app.
-    // These versions are intentionally pinned instead of floating to newer AndroidX releases
-    // that currently require compileSdk 36/37 and newer AGP versions.
     val composeBom = platform("androidx.compose:compose-bom:2025.05.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
